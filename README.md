@@ -1,11 +1,11 @@
-# Makerere Sports Management System
+#  Sports Management System
 
-Modernized web-based sports management system for Makerere University.
+Modernized web-based sports management system 
 
 ## Tech Stack
 - **Frontend:** React 18 + Vite + Tailwind CSS + React Router v6
 - **Backend:** Node.js + Express.js + JWT Auth
-- **Database:** MySQL 8.0 + Sequelize ORM
+- **Database:** Postgres + Sequelize ORM
 - **Server:** Nginx (production)
 
 ## Quick Start
@@ -28,4 +28,4 @@ npm run dev
 
 ## Team
 - Group 15, Department of Information Systems, Makerere University
-- Supervisor: Dr. Hawa Nyende
+
