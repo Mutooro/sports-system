@@ -23,4 +23,7 @@ router.post('/refresh', authController.refresh);
 router.get('/me', authenticate, authController.me);
 router.post('/logout', authenticate, authController.logout);
 
+// Coach dropdown endpoint
+router.get('/coaches', authenticate, authController.getCoaches);
+
 module.exports = router;

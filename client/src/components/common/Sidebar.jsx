@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, Users, Calendar, Trophy, 
-  Bell, Settings, LogOut, Shield, BarChart3, UserCircle 
+  Bell, Settings, LogOut, Shield, BarChart3, UserCircle, Wand2 
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
@@ -15,6 +15,8 @@ const Sidebar = () => {
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/players', icon: Users, label: 'Players' },
     { to: '/fixtures', icon: Calendar, label: 'Fixtures' },
+    { to: '/fixtures/generate', icon: Wand2, label: 'Auto Generate' },
+    { to: '/teams', icon: Shield, label: 'Teams' },
     { to: '/matches', icon: Trophy, label: 'Matches' },
     { to: '/ratings', icon: BarChart3, label: 'Ratings' },
     { to: '/notifications', icon: Bell, label: 'Notifications' },
@@ -31,6 +33,7 @@ const Sidebar = () => {
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/players', icon: Users, label: 'Players' },
     { to: '/fixtures', icon: Calendar, label: 'Fixtures' },
+    { to: '/teams', icon: Shield, label: 'Teams' },
     { to: '/ratings', icon: BarChart3, label: 'Ratings' },
     { to: '/notifications', icon: Bell, label: 'Notifications' },
   ]

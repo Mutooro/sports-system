@@ -11,12 +11,14 @@ import StudentDashboard from './pages/StudentDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import PlayerManagement from './pages/PlayerManagement'
 import PlayerDetail from './pages/PlayerDetail'
+import TeamManagement from './pages/TeamManagement'
 import Fixtures from './pages/Fixtures'
 import MatchResults from './pages/MatchResults'
 import Ratings from './pages/Ratings'
 import MyProfile from './pages/MyProfile'
 import Notifications from './pages/Notifications'
 import NotFound from './pages/NotFound'
+import FixtureGenerator from './pages/FixtureGenerator'
 
 function App() {
   const { user } = useAuthStore()
@@ -46,7 +48,9 @@ function App() {
           {/* Coach & Admin Routes */}
           <Route path="/players" element={<PlayerManagement />} />
           <Route path="/players/:id" element={<PlayerDetail />} />
+          <Route path="/teams" element={<TeamManagement />} />
           <Route path="/fixtures" element={<Fixtures />} />
+          <Route path="/fixtures/generate" element={<FixtureGenerator />} />
           <Route path="/matches" element={<MatchResults />} />
           <Route path="/ratings" element={<Ratings />} />
 

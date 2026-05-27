@@ -1,48 +1,61 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Calendar, Plus, MapPin, Clock, CheckCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { 
+  Calendar, Users, Plus, MapPin, Clock, Pencil, 
+  CheckCircle, X, Wand2, Filter 
+} from 'lucide-react'
 import { toast } from 'react-toastify'
 import { fixtureAPI } from '../services/api'
-import { VENUES } from '../utils/constants'
-import LoadingSpinner from '../components/common/LoadingSpinner'
+import { VENUES, FIXTURE_STATUS } from '../utils/constants'
 import { useAuthStore } from '../store/authStore'
+import LoadingSpinner from '../components/common/LoadingSpinner'
 
 const Fixtures = () => {
-  const { user } = useAuthStore()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [showModal, setShowModal] = useState(false)
-  const [formData, setFormData] = useState({
-    home_team_id: '',
-    away_team_id: '',
-    venue: '',
-    match_date: '',
-    notes: ''
-  })
+  const { user } = useAuthStore()
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({})
+  const [filters, setFilters] = useState({ status: '', venue: '' })
 
   const { data, isLoading } = useQuery({
-    queryKey: ['fixtures'],
-    queryFn: () => fixtureAPI.getAll({ limit: 50 })
+    queryKey: ['fixtures', filters],
+    queryFn: () => fixtureAPI.getAll({ ...filters, limit: 100 })
   })
 
-  const createMutation = useMutation({
-    mutationFn: fixtureAPI.create,
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => fixtureAPI.update(id, data),
     onSuccess: () => {
-      toast.success('Fixture created successfully!')
+      toast.success('Fixture updated!')
       queryClient.invalidateQueries(['fixtures'])
-      setShowModal(false)
-      setFormData({ home_team_id: '', away_team_id: '', venue: '', match_date: '', notes: '' })
+      setEditingId(null)
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Failed to create fixture')
+      toast.error(error.response?.data?.message || 'Update failed')
     }
   })
 
   const fixtures = data?.data?.data?.fixtures || []
   const isCoachOrAdmin = user?.role === 'coach' || user?.role === 'admin'
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    createMutation.mutate(formData)
+  const startEdit = (fixture) => {
+    setEditingId(fixture.id)
+    setEditForm({
+      match_date: new Date(fixture.match_date).toISOString().slice(0, 16),
+      venue: fixture.venue,
+      status: fixture.status,
+      notes: fixture.notes || ''
+    })
+  }
+
+  const saveEdit = (id) => {
+    updateMutation.mutate({ id, data: editForm })
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditForm({})
   }
 
   const getStatusColor = (status) => {
@@ -60,17 +73,52 @@ const Fixtures = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Fixtures</h1>
-          <p className="text-gray-500">Manage match schedules and fixtures</p>
+          <p className="text-gray-500">Manage match schedules</p>
         </div>
-        {isCoachOrAdmin && (
-          <button 
-            onClick={() => setShowModal(true)}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Add Fixture
-          </button>
-        )}
+        <div className="flex gap-3">
+          {isCoachOrAdmin && (
+            <>
+              <button 
+                onClick={() => navigate('/fixtures/generate')}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <Wand2 size={18} />
+                Auto Generate
+              </button>
+              <button 
+                onClick={() => navigate('/fixtures/new')}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Plus size={18} />
+                Add Manual
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex gap-3">
+        <select 
+          value={filters.status}
+          onChange={(e) => setFilters({...filters, status: e.target.value})}
+          className="px-4 py-2 border border-gray-300 rounded-lg"
+        >
+          <option value="">All Status</option>
+          {FIXTURE_STATUS.map(s => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
+        <select 
+          value={filters.venue}
+          onChange={(e) => setFilters({...filters, venue: e.target.value})}
+          className="px-4 py-2 border border-gray-300 rounded-lg"
+        >
+          <option value="">All Venues</option>
+          {VENUES.map(v => (
+            <option key={v.value} value={v.value}>{v.label}</option>
+          ))}
+        </select>
       </div>
 
       <div className="card">
@@ -80,116 +128,116 @@ const Fixtures = () => {
           <div className="text-center py-12">
             <Calendar className="mx-auto mb-3 text-gray-300" size={48} />
             <p className="text-gray-500">No fixtures scheduled</p>
+            {isCoachOrAdmin && (
+              <button 
+                onClick={() => navigate('/fixtures/generate')}
+                className="mt-4 text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Generate fixtures automatically
+              </button>
+            )}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {fixtures.map((fixture) => (
-              <div key={fixture.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                <div className="flex items-center gap-6 flex-1">
-                  <div className="text-center min-w-[120px]">
-                    <p className="font-semibold text-gray-900">{fixture.homeTeam?.name}</p>
-                    <p className="text-xs text-gray-500">Home</p>
-                  </div>
-                  <div className="text-xl font-bold text-gray-400">VS</div>
-                  <div className="text-center min-w-[120px]">
-                    <p className="font-semibold text-gray-900">{fixture.awayTeam?.name}</p>
-                    <p className="text-xs text-gray-500">Away</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-6">
-                  <div className="text-right">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <Clock size={14} />
-                      {new Date(fixture.match_date).toLocaleString()}
+              <div key={fixture.id} className="p-4 bg-gray-50 rounded-xl">
+                {editingId === fixture.id ? (
+                  // Edit Mode
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500">Date & Time</label>
+                        <input
+                          type="datetime-local"
+                          value={editForm.match_date}
+                          onChange={(e) => setEditForm({...editForm, match_date: e.target.value})}
+                          className="input-field"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Venue</label>
+                        <select
+                          value={editForm.venue}
+                          onChange={(e) => setEditForm({...editForm, venue: e.target.value})}
+                          className="input-field"
+                        >
+                          {VENUES.map(v => (
+                            <option key={v.value} value={v.value}>{v.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500">Status</label>
+                        <select
+                          value={editForm.status}
+                          onChange={(e) => setEditForm({...editForm, status: e.target.value})}
+                          className="input-field"
+                        >
+                          {FIXTURE_STATUS.map(s => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
-                      <MapPin size={14} />
-                      {VENUES.find(v => v.value === fixture.venue)?.label || fixture.venue}
+                    <div className="flex gap-2 justify-end">
+                      <button onClick={cancelEdit} className="btn-outline text-sm py-1 px-3">
+                        <X size={14} className="inline mr-1" />
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={() => saveEdit(fixture.id)} 
+                        className="btn-primary text-sm py-1 px-3"
+                        disabled={updateMutation.isPending}
+                      >
+                        <CheckCircle size={14} className="inline mr-1" />
+                        Save
+                      </button>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(fixture.status)}`}>
-                    {fixture.status}
-                  </span>
-                </div>
+                ) : (
+                  // View Mode
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-6 flex-1">
+                      <div className="text-center min-w-[120px]">
+                        <p className="font-semibold text-gray-900">{fixture.homeTeam?.name}</p>
+                        <p className="text-xs text-gray-500">Home</p>
+                      </div>
+                      <div className="text-xl font-bold text-gray-400">VS</div>
+                      <div className="text-center min-w-[120px]">
+                        <p className="font-semibold text-gray-900">{fixture.awayTeam?.name}</p>
+                        <p className="text-xs text-gray-500">Away</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-6">
+                      <div className="text-right">
+                        <div className="flex items-center gap-2 text-sm text-gray-600">
+                          <Clock size={14} />
+                          {new Date(fixture.match_date).toLocaleString()}
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-gray-600 mt-1">
+                          <MapPin size={14} />
+                          {VENUES.find(v => v.value === fixture.venue)?.label || fixture.venue}
+                        </div>
+                      </div>
+                      <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(fixture.status)}`}>
+                        {fixture.status}
+                      </span>
+                      {isCoachOrAdmin && (
+                        <button 
+                          onClick={() => startEdit(fixture)}
+                          className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
       </div>
-
-      {/* Add Fixture Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-lg">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Add New Fixture</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Home Team ID</label>
-                  <input
-                    type="number"
-                    value={formData.home_team_id}
-                    onChange={(e) => setFormData({...formData, home_team_id: e.target.value})}
-                    className="input-field"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Away Team ID</label>
-                  <input
-                    type="number"
-                    value={formData.away_team_id}
-                    onChange={(e) => setFormData({...formData, away_team_id: e.target.value})}
-                    className="input-field"
-                    required
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Venue</label>
-                <select
-                  value={formData.venue}
-                  onChange={(e) => setFormData({...formData, venue: e.target.value})}
-                  className="input-field"
-                  required
-                >
-                  <option value="">Select venue</option>
-                  {VENUES.map(v => (
-                    <option key={v.value} value={v.value}>{v.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Match Date & Time</label>
-                <input
-                  type="datetime-local"
-                  value={formData.match_date}
-                  onChange={(e) => setFormData({...formData, match_date: e.target.value})}
-                  className="input-field"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
-                  className="input-field"
-                  rows={3}
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="flex-1 btn-outline">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 btn-primary" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? 'Creating...' : 'Create Fixture'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

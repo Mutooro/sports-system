@@ -1,7 +1,15 @@
+import { Navigate } from 'react-router-dom'
 import { Trophy } from 'lucide-react'
 import LoginForm from '../components/auth/LoginForm'
+import { useAuthStore } from '../store/authStore'
 
 const Login = () => {
+  const { isAuthenticated } = useAuthStore()
+
+  if (isAuthenticated) {
+    return <Navigate to="/dashboard" replace />
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">

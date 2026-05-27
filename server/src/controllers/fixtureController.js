@@ -38,6 +38,24 @@ const fixtureController = {
     }
   },
 
+  // Get fixture calendar
+  getCalendar: async (req, res) => {
+    try {
+      const fixtures = await Fixture.findAll({
+        include: [
+          { model: Team, as: 'homeTeam', attributes: ['id', 'name'] },
+          { model: Team, as: 'awayTeam', attributes: ['id', 'name'] }
+        ],
+        order: [['match_date', 'ASC']]
+      });
+
+      return successResponse(res, { fixtures }, 'Fixture calendar retrieved');
+    } catch (error) {
+      logger.error('Get fixture calendar error:', error);
+      return errorResponse(res, 'Failed to retrieve fixture calendar', 500);
+    }
+  },
+
   // Get fixture by ID
   getById: async (req, res) => {
     try {
@@ -86,6 +104,42 @@ const fixtureController = {
     } catch (error) {
       logger.error('Create fixture error:', error);
       return errorResponse(res, 'Failed to create fixture', 500);
+    }
+  },
+
+  // Auto generate fixtures
+  autoGenerate: async (req, res) => {
+    try {
+      // Placeholder implementation - customize with actual generation logic
+      logger.info('Auto generate fixtures request received');
+      return successResponse(res, null, 'Auto-generation is not implemented yet', 501);
+    } catch (error) {
+      logger.error('Auto generate fixtures error:', error);
+      return errorResponse(res, 'Failed to auto generate fixtures', 500);
+    }
+  },
+
+  // Preview fixture generation
+  previewGeneration: async (req, res) => {
+    try {
+      // Placeholder implementation - customize with preview logic
+      logger.info('Preview fixture generation request received');
+      return successResponse(res, null, 'Preview generation is not implemented yet', 501);
+    } catch (error) {
+      logger.error('Preview generation error:', error);
+      return errorResponse(res, 'Failed to preview fixture generation', 500);
+    }
+  },
+
+  // Bulk update fixtures
+  bulkUpdate: async (req, res) => {
+    try {
+      // Placeholder implementation - customize with bulk update logic
+      logger.info('Bulk update fixtures request received');
+      return successResponse(res, null, 'Bulk update is not implemented yet', 501);
+    } catch (error) {
+      logger.error('Bulk update error:', error);
+      return errorResponse(res, 'Failed to bulk update fixtures', 500);
     }
   },
 

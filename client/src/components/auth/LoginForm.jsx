@@ -20,7 +20,7 @@ const LoginForm = () => {
       const response = await authAPI.login(data)
       login(response.data.data)
       toast.success('Welcome back!')
-      navigate('/dashboard')
+      navigate('/dashboard', { replace: true })
     } catch (error) {
       toast.error(error.response?.data?.message || 'Login failed')
     } finally {

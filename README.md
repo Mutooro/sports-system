@@ -5,7 +5,7 @@ Modernized web-based sports management system
 ## Tech Stack
 - **Frontend:** React 18 + Vite + Tailwind CSS + React Router v6
 - **Backend:** Node.js + Express.js + JWT Auth
-- **Database:** Postgres + Sequelize ORM
+- **Database:** Postgres 18.4 + Sequelize ORM
 - **Server:** Nginx (production)
 
 ## Quick Start

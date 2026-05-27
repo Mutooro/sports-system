@@ -27,19 +27,19 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config
-
+    
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
-
+      
       try {
         const refreshToken = useAuthStore.getState().refreshToken
         const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
           refreshToken
         })
-
+        
         const { accessToken } = response.data.data
         useAuthStore.getState().updateTokens({ accessToken })
-
+        
         originalRequest.headers.Authorization = `Bearer ${accessToken}`
         return api(originalRequest)
       } catch (refreshError) {
@@ -48,7 +48,7 @@ api.interceptors.response.use(
         return Promise.reject(refreshError)
       }
     }
-
+    
     return Promise.reject(error)
   }
 )
@@ -59,7 +59,8 @@ export const authAPI = {
   register: (data) => api.post('/auth/register', data),
   refresh: (token) => api.post('/auth/refresh', { refreshToken: token }),
   logout: () => api.post('/auth/logout'),
-  me: () => api.get('/auth/me')
+  me: () => api.get('/auth/me'),
+  getCoaches: () => api.get('/auth/coaches')
 }
 
 // Players API
@@ -72,13 +73,28 @@ export const playerAPI = {
   search: (query) => api.get('/players/search', { params: { q: query } })
 }
 
+// Teams API
+export const teamAPI = {
+  getAll: (params) => api.get('/teams', { params }),
+  getById: (id) => api.get(`/teams/${id}`),
+  create: (data) => api.post('/teams', data),
+  update: (id, data) => api.put(`/teams/${id}`, data),
+  delete: (id) => api.delete(`/teams/${id}`),
+  getPlayers: (id) => api.get(`/teams/${id}/players`),
+  getRatings: (id) => api.get(`/teams/${id}/ratings`)
+}
+
 // Fixtures API
 export const fixtureAPI = {
   getAll: (params) => api.get('/fixtures', { params }),
   getById: (id) => api.get(`/fixtures/${id}`),
   create: (data) => api.post('/fixtures', data),
   update: (id, data) => api.put(`/fixtures/${id}`, data),
-  delete: (id) => api.delete(`/fixtures/${id}`)
+  delete: (id) => api.delete(`/fixtures/${id}`),
+  autoGenerate: (data) => api.post('/fixtures/auto-generate', data),
+  previewGeneration: (data) => api.post('/fixtures/preview', data),
+  getCalendar: (params) => api.get('/fixtures/calendar', { params }),
+  bulkUpdate: (data) => api.put('/fixtures/bulk-update', data)
 }
 
 // Matches API
@@ -108,6 +124,12 @@ export const adminAPI = {
   toggleUserStatus: (id) => api.put(`/admin/users/${id}/toggle`),
   getAuditLogs: (params) => api.get('/admin/audit-logs', { params }),
   getDashboardStats: () => api.get('/admin/dashboard-stats')
+}
+
+// Halls API
+export const hallAPI = {
+  getAll: () => api.get('/halls'),
+  getById: (id) => api.get(`/halls/${id}`)
 }
 
 export default api

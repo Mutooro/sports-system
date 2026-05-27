@@ -7,8 +7,10 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "test": "jest",
+    "db:create": "node src/scripts/createDb.js",
     "db:sync": "node src/scripts/syncDb.js",
-    "db:seed": "node src/scripts/seedDb.js"
+    "db:seed": "node src/scripts/seedDb.js",
+    "db:setup": "npm run db:create && npm run db:sync && npm run db:seed"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -19,7 +21,8 @@
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
     "sequelize": "^6.35.2",
-    "mysql2": "^3.6.5",
+    "pg": "^8.11.3",
+    "pg-hstore": "^2.3.4",
     "joi": "^17.11.0",
     "express-rate-limit": "^7.1.5",
     "multer": "^1.4.5-lts.1",
