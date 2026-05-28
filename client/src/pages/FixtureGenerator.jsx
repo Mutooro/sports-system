@@ -285,8 +285,8 @@ const FixtureGenerator = () => {
                   {preview.preview.map((fixture, idx) => (
                     <tr key={idx} className="border-b border-gray-100 hover:bg-gray-50">
                       <td className="py-2 px-3 text-sm text-gray-600">{fixture.round}</td>
-                      <td className="py-2 px-3 text-sm font-medium text-gray-900">{fixture.home_team_id}</td>
-                      <td className="py-2 px-3 text-sm font-medium text-gray-900">{fixture.away_team_id}</td>
+                      <td className="py-2 px-3 text-sm font-medium text-gray-900">{fixture.home_team_name}</td>
+                      <td className="py-2 px-3 text-sm font-medium text-gray-900">{fixture.away_team_name}</td>
                       <td className="py-2 px-3 text-sm text-gray-600">
                         {new Date(fixture.match_date).toLocaleString()}
                       </td>

@@ -1,4 +1,4 @@
-# Makerere Sports Management System - API Documentation
+# Sports Management System - API Documentation
 
 ## Base URL
 ```
