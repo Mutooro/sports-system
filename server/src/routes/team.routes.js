@@ -8,8 +8,8 @@ router.get('/', authenticate, teamController.getAll);
 router.get('/:id', authenticate, teamController.getById);
 router.get('/:id/players', authenticate, teamController.getTeamPlayers);
 router.get('/:id/ratings', authenticate, teamController.getTeamRatings);
-router.post('/', authenticate, authorize('coach', 'admin'), auditLog('CREATE', 'team'), teamController.create);
-router.put('/:id', authenticate, authorize('coach', 'admin'), auditLog('UPDATE', 'team'), teamController.update);
+router.post('/', authenticate, authorize('admin'), auditLog('CREATE', 'team'), teamController.create);
+router.put('/:id', authenticate, authorize('admin'), auditLog('UPDATE', 'team'), teamController.update);
 router.delete('/:id', authenticate, authorize('admin'), auditLog('DELETE', 'team'), teamController.delete);
 
 module.exports = router;

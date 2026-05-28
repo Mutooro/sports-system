@@ -37,7 +37,7 @@ const Fixtures = () => {
   })
 
   const fixtures = data?.data?.data?.fixtures || []
-  const isCoachOrAdmin = user?.role === 'coach' || user?.role === 'admin'
+  const canManageFixtures = user?.role === 'admin'
 
   const startEdit = (fixture) => {
     setEditingId(fixture.id)
@@ -76,7 +76,7 @@ const Fixtures = () => {
           <p className="text-gray-500">Manage match schedules</p>
         </div>
         <div className="flex gap-3">
-          {isCoachOrAdmin && (
+          {canManageFixtures && (
             <>
               <button 
                 onClick={() => navigate('/fixtures/generate')}
@@ -128,13 +128,15 @@ const Fixtures = () => {
           <div className="text-center py-12">
             <Calendar className="mx-auto mb-3 text-gray-300" size={48} />
             <p className="text-gray-500">No fixtures scheduled</p>
-            {isCoachOrAdmin && (
+            {canManageFixtures ? (
               <button 
                 onClick={() => navigate('/fixtures/generate')}
                 className="mt-4 text-primary-600 hover:text-primary-700 font-medium"
               >
                 Generate fixtures automatically
               </button>
+            ) : (
+              <p className="text-sm text-gray-500 mt-4">Contact an admin to generate fixtures.</p>
             )}
           </div>
         ) : (
@@ -222,7 +224,7 @@ const Fixtures = () => {
                       <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(fixture.status)}`}>
                         {fixture.status}
                       </span>
-                      {isCoachOrAdmin && (
+                      {canManageFixtures && (
                         <button 
                           onClick={() => startEdit(fixture)}
                           className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"

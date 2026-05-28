@@ -15,7 +15,6 @@ const Sidebar = () => {
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/players', icon: Users, label: 'Players' },
     { to: '/fixtures', icon: Calendar, label: 'Fixtures' },
-    { to: '/fixtures/generate', icon: Wand2, label: 'Auto Generate' },
     { to: '/teams', icon: Shield, label: 'Teams' },
     { to: '/matches', icon: Trophy, label: 'Matches' },
     { to: '/ratings', icon: BarChart3, label: 'Ratings' },

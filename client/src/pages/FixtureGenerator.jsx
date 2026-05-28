@@ -10,10 +10,13 @@ import {
 import { fixtureAPI } from '../services/api'
 import { VENUES } from '../utils/constants'
 import LoadingSpinner from '../components/common/LoadingSpinner'
+import { useAuthStore } from '../store/authStore'
 
 const FixtureGenerator = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin'
   const [step, setStep] = useState(1)
   const [preview, setPreview] = useState(null)
   const [config, setConfig] = useState({
@@ -77,6 +80,26 @@ const FixtureGenerator = () => {
     { value: 5, label: 'Friday' },
     { value: 6, label: 'Saturday' }
   ]
+
+  if (!isAdmin) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Fixture Generator</h1>
+          <p className="text-gray-500">Only administrators can generate fixtures.</p>
+        </div>
+        <div className="card p-8 text-center">
+          <p className="text-gray-600">You do not have permission to access this page.</p>
+          <button
+            onClick={() => navigate('/fixtures')}
+            className="mt-6 btn-primary"
+          >
+            Back to Fixtures
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">

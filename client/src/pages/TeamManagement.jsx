@@ -15,6 +15,7 @@ const TeamManagement = () => {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
+  const isAdmin = user?.role === 'admin'
   const [showModal, setShowModal] = useState(false)
   const [editingTeam, setEditingTeam] = useState(null)
   const [formData, setFormData] = useState({
@@ -147,15 +148,17 @@ const TeamManagement = () => {
             <Shield className="text-primary-500" />
             Team Management
           </h1>
-          <p className="text-gray-500">Add and manage teams for fixture generation</p>
+          <p className="text-gray-500">View and manage teams for your department</p>
         </div>
-        <button 
-          onClick={() => { setEditingTeam(null); resetForm(); setShowModal(true) }}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus size={18} />
-          Add Team
-        </button>
+        {isAdmin && (
+          <button 
+            onClick={() => { setEditingTeam(null); resetForm(); setShowModal(true) }}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Add Team
+          </button>
+        )}
       </div>
 
       {/* Stats */}
@@ -192,12 +195,16 @@ const TeamManagement = () => {
           <div className="text-center py-12">
             <Users className="mx-auto mb-3 text-gray-300" size={48} />
             <p className="text-gray-500">No teams yet</p>
-            <button 
-              onClick={() => setShowModal(true)}
-              className="mt-4 text-primary-600 hover:text-primary-700 font-medium"
-            >
-              Add your first team
-            </button>
+            {isAdmin ? (
+              <button 
+                onClick={() => setShowModal(true)}
+                className="mt-4 text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Add your first team
+              </button>
+            ) : (
+              <p className="text-sm text-gray-500 mt-4">Contact an admin to create teams.</p>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -252,18 +259,24 @@ const TeamManagement = () => {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex items-center justify-end gap-2">
-                        <button 
-                          onClick={() => startEdit(team)}
-                          className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(team.id)}
-                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                          {isAdmin ? (
+                          <>
+                            <button 
+                              onClick={() => startEdit(team)}
+                              className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(team.id)}
+                              className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-gray-500">Admins only</span>
+                        )}
                       </div>
                     </td>
                   </tr>

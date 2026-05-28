@@ -67,7 +67,7 @@ const CoachDashboard = () => {
             </a>
             <a href="/fixtures" className="p-4 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors text-center">
               <Calendar className="mx-auto mb-2 text-blue-600" size={24} />
-              <p className="font-medium text-blue-700">Add Fixture</p>
+              <p className="font-medium text-blue-700">View Fixtures</p>
             </a>
             <a href="/ratings" className="p-4 bg-green-50 hover:bg-green-100 rounded-xl transition-colors text-center">
               <TrendingUp className="mx-auto mb-2 text-green-600" size={24} />
