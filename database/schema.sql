@@ -105,6 +105,38 @@ CREATE TABLE matches (
   INDEX idx_fixture (fixture_id)
 ) ENGINE=InnoDB;
 
+-- Standings view
+DROP VIEW IF EXISTS team_standings;
+CREATE VIEW team_standings AS
+SELECT
+  t.id AS team_id,
+  t.name AS team_name,
+  COUNT(m.id) AS played,
+  SUM(CASE
+    WHEN m.result = 'home_win' AND f.home_team_id = t.id THEN 1
+    WHEN m.result = 'away_win' AND f.away_team_id = t.id THEN 1
+    ELSE 0
+  END) AS wins,
+  SUM(CASE WHEN m.result = 'draw' THEN 1 ELSE 0 END) AS draws,
+  SUM(CASE
+    WHEN m.result = 'home_win' AND f.away_team_id = t.id THEN 1
+    WHEN m.result = 'away_win' AND f.home_team_id = t.id THEN 1
+    ELSE 0
+  END) AS losses,
+  SUM(CASE WHEN f.home_team_id = t.id THEN m.home_score WHEN f.away_team_id = t.id THEN m.away_score ELSE 0 END) AS goals_for,
+  SUM(CASE WHEN f.home_team_id = t.id THEN m.away_score WHEN f.away_team_id = t.id THEN m.home_score ELSE 0 END) AS goals_against,
+  SUM(CASE
+    WHEN m.result = 'home_win' AND f.home_team_id = t.id THEN 3
+    WHEN m.result = 'away_win' AND f.away_team_id = t.id THEN 3
+    WHEN m.result = 'draw' THEN 1
+    ELSE 0
+  END) AS points
+FROM matches m
+JOIN fixtures f ON f.id = m.fixture_id
+JOIN teams t ON t.id IN (f.home_team_id, f.away_team_id)
+WHERE m.result IN ('home_win', 'away_win', 'draw')
+GROUP BY t.id, t.name;
+
 -- Performances
 CREATE TABLE performances (
   id INT AUTO_INCREMENT PRIMARY KEY,

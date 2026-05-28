@@ -1,5 +1,86 @@
-const { User, AuditLog, sequelize } = require('../models');
+const { User, AuditLog, sequelize, Player, Team, Fixture, Match, Performance } = require('../models');
 const { successResponse, errorResponse, paginate } = require('../utils/helpers');
+
+async function buildStandings() {
+  const { Op } = require('sequelize');
+
+  const completedMatches = await Match.findAll({
+    where: {
+      result: { [Op.notIn]: ['no_result', null] }
+    },
+    include: [
+      {
+        model: Fixture,
+        as: 'fixture',
+        include: [
+          { model: Team, as: 'homeTeam', attributes: ['id', 'name'] },
+          { model: Team, as: 'awayTeam', attributes: ['id', 'name'] }
+        ]
+      }
+    ]
+  });
+
+  const standingsMap = new Map();
+  const getStandingRow = (team) => {
+    if (!standingsMap.has(team.id)) {
+      standingsMap.set(team.id, {
+        teamId: team.id,
+        teamName: team.name,
+        played: 0,
+        wins: 0,
+        draws: 0,
+        losses: 0,
+        goalsFor: 0,
+        goalsAgainst: 0,
+        points: 0
+      });
+    }
+    return standingsMap.get(team.id);
+  };
+
+  completedMatches.forEach((match) => {
+    const fixture = match.fixture;
+    if (!fixture || !fixture.homeTeam || !fixture.awayTeam) return;
+
+    const home = getStandingRow(fixture.homeTeam);
+    const away = getStandingRow(fixture.awayTeam);
+
+    home.played += 1;
+    away.played += 1;
+
+    home.goalsFor += match.home_score;
+    home.goalsAgainst += match.away_score;
+    away.goalsFor += match.away_score;
+    away.goalsAgainst += match.home_score;
+
+    if (match.result === 'home_win') {
+      home.wins += 1;
+      home.points += 3;
+      away.losses += 1;
+    } else if (match.result === 'away_win') {
+      away.wins += 1;
+      away.points += 3;
+      home.losses += 1;
+    } else if (match.result === 'draw') {
+      home.draws += 1;
+      away.draws += 1;
+      home.points += 1;
+      away.points += 1;
+    }
+  });
+
+  return [...standingsMap.values()]
+    .map((team) => ({
+      ...team,
+      goalDifference: team.goalsFor - team.goalsAgainst
+    }))
+    .sort((a, b) =>
+      b.points - a.points ||
+      b.goalDifference - a.goalDifference ||
+      b.goalsFor - a.goalsFor ||
+      a.teamName.localeCompare(b.teamName)
+    );
+}
 
 const adminController = {
   // Get all users
@@ -67,27 +148,119 @@ const adminController = {
     }
   },
 
+  // Table standings
+  getStandings: async (req, res) => {
+    try {
+      const standings = await buildStandings();
+      return successResponse(res, standings.slice(0, 5));
+    } catch (error) {
+      return errorResponse(res, 'Failed to retrieve standings', 500);
+    }
+  },
+
   // Dashboard stats
   getDashboardStats: async (req, res) => {
     try {
-      const stats = await Promise.all([
+      const { Op } = require('sequelize');
+
+      const [
+        totalUsers,
+        totalStudents,
+        totalCoaches,
+        totalPlayers,
+        totalFixtures,
+        upcomingFixturesCount,
+        totalMatches
+      ] = await Promise.all([
         User.count(),
         User.count({ where: { role: 'student' } }),
         User.count({ where: { role: 'coach' } }),
-        require('../models').Player.count(),
-        require('../models').Fixture.count(),
-        require('../models').Fixture.count({ where: { status: 'scheduled' } }),
-        require('../models').Match.count()
+        Player.count(),
+        Fixture.count(),
+        Fixture.count({ where: { status: 'scheduled' } }),
+        Match.count()
+      ]);
+
+      const upcomingFixtures = await Fixture.findAll({
+        where: {
+          status: 'scheduled',
+          match_date: { [Op.gte]: new Date() }
+        },
+        include: [
+          { model: Team, as: 'homeTeam', attributes: ['id', 'name'] },
+          { model: Team, as: 'awayTeam', attributes: ['id', 'name'] }
+        ],
+        order: [['match_date', 'ASC']],
+        limit: 5
+      });
+
+      const recentResults = await Match.findAll({
+        where: {
+          result: { [Op.notIn]: ['no_result', null] }
+        },
+        include: [
+          {
+            model: Fixture,
+            as: 'fixture',
+            include: [
+              { model: Team, as: 'homeTeam', attributes: ['id', 'name'] },
+              { model: Team, as: 'awayTeam', attributes: ['id', 'name'] }
+            ]
+          }
+        ],
+        order: [['played_date', 'DESC']],
+        limit: 5
+      });
+
+      const [topScorers, standings] = await Promise.all([
+        sequelize.query(
+          `
+          SELECT
+            p.player_id,
+            CONCAT(u.first_name, ' ', u.last_name) AS player_name,
+            t.name AS team_name,
+            SUM(p.goals) AS goals
+          FROM performances p
+          JOIN players pl ON pl.id = p.player_id
+          JOIN users u ON u.id = pl.user_id
+          LEFT JOIN teams t ON t.id = pl.team_id
+          WHERE p.goals > 0
+          GROUP BY p.player_id, u.first_name, u.last_name, t.name
+          ORDER BY goals DESC
+          LIMIT 5
+        `,
+          { type: sequelize.QueryTypes.SELECT }
+        ),
+        buildStandings()
       ]);
 
       return successResponse(res, {
-        totalUsers: stats[0],
-        totalStudents: stats[1],
-        totalCoaches: stats[2],
-        totalPlayers: stats[3],
-        totalFixtures: stats[4],
-        upcomingFixtures: stats[5],
-        totalMatches: stats[6]
+        totalUsers,
+        totalStudents,
+        totalCoaches,
+        totalPlayers,
+        totalFixtures,
+        upcomingFixturesCount,
+        upcomingFixtures: upcomingFixtures.map((fixture) => ({
+          id: fixture.id,
+          homeTeamName: fixture.homeTeam?.name || 'Home',
+          awayTeamName: fixture.awayTeam?.name || 'Away',
+          matchDate: fixture.match_date,
+          venue: fixture.venue
+        })),
+        recentResults: recentResults.map((match) => ({
+          id: match.id,
+          homeTeamName: match.fixture?.homeTeam?.name || 'Home',
+          awayTeamName: match.fixture?.awayTeam?.name || 'Away',
+          homeScore: match.home_score,
+          awayScore: match.away_score,
+          playedDate: match.played_date,
+          result: match.result,
+          venue: match.fixture?.venue
+        })),
+        standings: standings.slice(0, 5),
+        topScorers,
+        totalMatches
       });
     } catch (error) {
       return errorResponse(res, 'Failed to retrieve stats', 500);

@@ -7,5 +7,6 @@ router.get('/users', authenticate, authorize('admin'), adminController.getUsers)
 router.put('/users/:id/toggle', authenticate, authorize('admin'), adminController.toggleUserStatus);
 router.get('/audit-logs', authenticate, authorize('admin'), adminController.getAuditLogs);
 router.get('/dashboard-stats', authenticate, authorize('admin'), adminController.getDashboardStats);
+router.get('/standings', authenticate, authorize('admin'), adminController.getStandings);
 
 module.exports = router;

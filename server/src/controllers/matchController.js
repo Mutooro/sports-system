@@ -44,6 +44,33 @@ const matchController = {
     }
   },
 
+  // List all match results
+  getAll: async (req, res) => {
+    try {
+      const { Op } = require('sequelize');
+      const matches = await Match.findAll({
+        where: {
+          result: { [Op.notIn]: ['no_result', null] }
+        },
+        include: [
+          {
+            model: Fixture,
+            as: 'fixture',
+            include: [
+              { model: require('../models').Team, as: 'homeTeam', attributes: ['id', 'name'] },
+              { model: require('../models').Team, as: 'awayTeam', attributes: ['id', 'name'] }
+            ]
+          }
+        ],
+        order: [['played_date', 'DESC']]
+      });
+      return successResponse(res, matches);
+    } catch (error) {
+      logger.error('Get matches error:', error);
+      return errorResponse(res, 'Failed to retrieve match results', 500);
+    }
+  },
+
   // Add player performance for a match
   addPerformance: async (req, res) => {
     try {

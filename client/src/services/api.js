@@ -101,6 +101,7 @@ export const fixtureAPI = {
 export const matchAPI = {
   create: (data) => api.post('/matches', data),
   getById: (id) => api.get(`/matches/${id}`),
+  getAll: (params) => api.get('/matches', { params }),
   addPerformance: (matchId, data) => api.post(`/matches/${matchId}/performances`, data)
 }
 
@@ -123,7 +124,8 @@ export const adminAPI = {
   getUsers: (params) => api.get('/admin/users', { params }),
   toggleUserStatus: (id) => api.put(`/admin/users/${id}/toggle`),
   getAuditLogs: (params) => api.get('/admin/audit-logs', { params }),
-  getDashboardStats: () => api.get('/admin/dashboard-stats')
+  getDashboardStats: () => api.get('/admin/dashboard-stats'),
+  getStandings: () => api.get('/admin/standings')
 }
 
 // Halls API
