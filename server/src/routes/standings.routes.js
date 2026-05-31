@@ -3,9 +3,7 @@ const router = express.Router();
 const standingsController = require('../controllers/standingsController');
 const { authenticate } = require('../middleware/auth');
 
-router.get('/table', authenticate, standingsController.getStandings);
-router.get('/stats', authenticate, standingsController.getSeasonStats);
-router.get('/upcoming', authenticate, standingsController.getUpcomingFixtures);
-router.get('/results', authenticate, standingsController.getRecentResults);
+router.get('/', authenticate, standingsController.getStandings);
+router.get('/season-stats', authenticate, standingsController.getSeasonStats);
 
 module.exports = router;

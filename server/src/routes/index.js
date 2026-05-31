@@ -1,26 +1,11 @@
 const express = require('express');
 const router = express.Router();
+const adminController = require('../controllers/adminController');
+const { authenticate, authorize } = require('../middleware/auth');
 
-const authRoutes = require('./auth.routes');
-const playerRoutes = require('./player.routes');
-const fixtureRoutes = require('./fixture.routes');
-const matchRoutes = require('./match.routes');
-const ratingRoutes = require('./rating.routes');
-const notificationRoutes = require('./notification.routes');
-const adminRoutes = require('./admin.routes');
-const teamRoutes = require('./team.routes');
-const hallRoutes = require('./hall.routes');
-const dashboardRoutes = require('./dashboard.routes');
-
-router.use('/dashboard', dashboardRoutes);
-router.use('/auth', authRoutes);
-router.use('/players', playerRoutes);
-router.use('/fixtures', fixtureRoutes);
-router.use('/matches', matchRoutes);
-router.use('/ratings', ratingRoutes);
-router.use('/notifications', notificationRoutes);
-router.use('/admin', adminRoutes);
-router.use('/teams', teamRoutes);
-router.use('/halls', hallRoutes);
+router.get('/users', authenticate, authorize('admin'), adminController.getUsers);
+router.put('/users/:id/toggle', authenticate, authorize('admin'), adminController.toggleUserStatus);
+router.get('/audit-logs', authenticate, authorize('admin'), adminController.getAuditLogs);
+router.get('/dashboard-stats', authenticate, authorize('admin'), adminController.getDashboardStats);
 
 module.exports = router;
