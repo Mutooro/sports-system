@@ -10,7 +10,9 @@ const notificationRoutes = require('./notification.routes');
 const adminRoutes = require('./admin.routes');
 const teamRoutes = require('./team.routes');
 const hallRoutes = require('./hall.routes');
+const dashboardRoutes = require('./dashboard.routes');
 
+router.use('/dashboard', dashboardRoutes);
 router.use('/auth', authRoutes);
 router.use('/players', playerRoutes);
 router.use('/fixtures', fixtureRoutes);
