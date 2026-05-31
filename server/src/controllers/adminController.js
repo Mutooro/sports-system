@@ -6,7 +6,7 @@ async function buildStandings() {
 
   const completedMatches = await Match.findAll({
     where: {
-      result: { [Op.notIn]: ['no_result', null] }
+      result: { [Op.ne]: 'no_result' }
     },
     include: [
       {
@@ -196,7 +196,10 @@ const adminController = {
 
       const recentResults = await Match.findAll({
         where: {
-          result: { [Op.notIn]: ['no_result', null] }
+          [Op.and]: [
+            { result: { [Op.ne]: 'no_result' } },
+            { result: { [Op.ne]: null } }
+          ]
         },
         include: [
           {

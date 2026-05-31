@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { X, ChevronRight, ChevronLeft, Trophy, Users, CheckCircle } from 'lucide-react'
 import { fixtureAPI, matchAPI, teamAPI } from '../../services/api'
@@ -19,14 +19,14 @@ const defaultPerf = (player) => ({
   rating:          ''
 })
 
-const RecordMatchModal = ({ onClose, existingMatch = null }) => {
+const RecordMatchModal = ({ onClose, existingMatch = null, defaultFixtureId = null }) => {
   const queryClient = useQueryClient()
   const { accessToken } = useAuthStore()
   const isEdit = !!existingMatch
 
   const [step,       setStep]       = useState(1)
   const [matchId,    setMatchId]    = useState(existingMatch?.id || null)
-  const [fixtureId,  setFixtureId]  = useState(existingMatch?.fixture_id || '')
+  const [fixtureId,  setFixtureId]  = useState(existingMatch?.fixture_id || defaultFixtureId || '')
   const [scores,     setScores]     = useState({
     home_score:         existingMatch?.home_score  ?? '',
     away_score:         existingMatch?.away_score  ?? '',
@@ -87,6 +87,7 @@ const RecordMatchModal = ({ onClose, existingMatch = null }) => {
       queryClient.invalidateQueries(['matches'])
       queryClient.invalidateQueries(['matches-recent'])
       queryClient.invalidateQueries(['standings'])
+      queryClient.invalidateQueries(['fixtures'])
       queryClient.invalidateQueries(['fixtures-scheduled'])
       toast.success(isEdit ? 'Match result updated!' : 'Match result recorded!')
       setStep(2)
@@ -106,6 +107,12 @@ const RecordMatchModal = ({ onClose, existingMatch = null }) => {
   })
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!isEdit && defaultFixtureId) {
+      setFixtureId(defaultFixtureId)
+    }
+  }, [defaultFixtureId, isEdit])
+
   const handleScoreSubmit = (e) => {
     e.preventDefault()
     if (!fixtureId && !isEdit) return toast.error('Please select a fixture')

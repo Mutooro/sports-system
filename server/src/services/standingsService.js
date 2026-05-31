@@ -18,8 +18,10 @@ class StandingsService {
     // NOTE: sport_type lives on Team, NOT on Fixture
     const matches = await Match.findAll({
       where: {
-        result: { [Op.notIn]: ['no_result'] },
-        result: { [Op.ne]: null }
+        [Op.and]: [
+          { result: { [Op.ne]: 'no_result' } },
+          { result: { [Op.ne]: null } }
+        ]
       },
       include: [{
         model: Fixture,

@@ -5,6 +5,7 @@ import {
   Calendar, Users, Plus, MapPin, Clock, Pencil, 
   CheckCircle, X, Wand2, Filter 
 } from 'lucide-react'
+import RecordMatchModal from '../components/common/RecordMatchModal'
 import { toast } from 'react-toastify'
 import { fixtureAPI } from '../services/api'
 import { VENUES, FIXTURE_STATUS } from '../utils/constants'
@@ -17,6 +18,9 @@ const Fixtures = () => {
   const { user } = useAuthStore()
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState({})
+  const [showRecordModal, setShowRecordModal] = useState(false)
+  const [recordMatchData, setRecordMatchData] = useState(null)
+  const [recordFixtureId, setRecordFixtureId] = useState(null)
   const [filters, setFilters] = useState({ status: '', venue: '' })
 
   const { data, isLoading } = useQuery({
@@ -232,6 +236,32 @@ const Fixtures = () => {
                           <Pencil size={16} />
                         </button>
                       )}
+                      <div className="flex flex-col gap-2">
+                        {fixture.status === 'scheduled' && (
+                          <button
+                            onClick={() => {
+                              setRecordMatchData(null)
+                              setRecordFixtureId(fixture.id)
+                              setShowRecordModal(true)
+                            }}
+                            className="btn-secondary text-xs px-3 py-1"
+                          >
+                            Record Result
+                          </button>
+                        )}
+                        {fixture.status === 'completed' && fixture.matchResult && (
+                          <button
+                            onClick={() => {
+                              setRecordMatchData({ ...fixture.matchResult, fixture })
+                              setRecordFixtureId(fixture.id)
+                              setShowRecordModal(true)
+                            }}
+                            className="btn-secondary text-xs px-3 py-1"
+                          >
+                            Edit Result
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -240,6 +270,17 @@ const Fixtures = () => {
           </div>
         )}
       </div>
+      {showRecordModal && (
+        <RecordMatchModal
+          onClose={() => {
+            setShowRecordModal(false)
+            setRecordMatchData(null)
+            setRecordFixtureId(null)
+          }}
+          existingMatch={recordMatchData}
+          defaultFixtureId={recordFixtureId}
+        />
+      )}
     </div>
   )
 }

@@ -187,17 +187,17 @@ const AdminDashboard = () => {
                         <div className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full flex-shrink-0 ${idx < 3 ? 'bg-green-400' : 'bg-gray-200'}`} />
                           {/* controller shapes standings with team_name */}
-                          <span className="font-semibold text-gray-900">{row.team_name || row.name}</span>
+                          <span className="font-semibold text-gray-900">{row.teamName || row.team_name || row.name}</span>
                         </div>
                       </td>
                       <td className="py-2.5 text-center text-gray-600">{row.played}</td>
-                      <td className="py-2.5 text-center text-green-600 font-medium">{row.won}</td>
-                      <td className="py-2.5 text-center text-yellow-600">{row.drawn}</td>
-                      <td className="py-2.5 text-center text-red-500">{row.lost}</td>
-                      <td className="py-2.5 text-center text-gray-600">{row.goals_for}</td>
-                      <td className="py-2.5 text-center text-gray-600">{row.goals_against}</td>
-                      <td className={`py-2.5 text-center font-medium ${row.goal_difference > 0 ? 'text-green-600' : row.goal_difference < 0 ? 'text-red-500' : 'text-gray-400'}`}>
-                        {row.goal_difference > 0 ? '+' : ''}{row.goal_difference}
+                      <td className="py-2.5 text-center text-green-600 font-medium">{row.wins ?? row.won}</td>
+                      <td className="py-2.5 text-center text-yellow-600">{row.draws ?? row.drawn}</td>
+                      <td className="py-2.5 text-center text-red-500">{row.losses ?? row.lost}</td>
+                      <td className="py-2.5 text-center text-gray-600">{row.goalsFor ?? row.goals_for}</td>
+                      <td className="py-2.5 text-center text-gray-600">{row.goalsAgainst ?? row.goals_against}</td>
+                      <td className={`py-2.5 text-center font-medium ${(row.goalDifference ?? row.goal_difference) > 0 ? 'text-green-600' : (row.goalDifference ?? row.goal_difference) < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                        {((row.goalDifference ?? row.goal_difference) > 0 ? '+' : '')}{row.goalDifference ?? row.goal_difference}
                       </td>
                       <td className="py-2.5 text-center font-bold text-gray-900">{row.points}</td>
                     </tr>

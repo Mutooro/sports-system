@@ -19,6 +19,7 @@ import MyProfile from './pages/MyProfile'
 import Notifications from './pages/Notifications'
 import NotFound from './pages/NotFound'
 import FixtureGenerator from './pages/FixtureGenerator'
+import RecordMatch from './pages/RecordMatch'
 
 function App() {
   const { user } = useAuthStore()
@@ -45,9 +46,12 @@ function App() {
             <StudentDashboard />
           } />
 
+          
+
           {/* Coach & Admin Routes */}
           <Route path="/players" element={<PlayerManagement />} />
           <Route path="/players/:id" element={<PlayerDetail />} />
+          <Route path="/matches/record" element={<RecordMatch />} />
           <Route path="/teams" element={<TeamManagement />} />
           <Route path="/fixtures" element={<Fixtures />} />
           <Route path="/fixtures/generate" element={<FixtureGenerator />} />
@@ -57,6 +61,7 @@ function App() {
           {/* Shared Routes */}
           <Route path="/profile" element={<MyProfile />} />
           <Route path="/notifications" element={<Notifications />} />
+          
         </Route>
       </Route>
 

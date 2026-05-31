@@ -17,7 +17,8 @@ const fixtureController = {
         where,
         include: [
           { model: Team, as: 'homeTeam', attributes: ['id', 'name'] },
-          { model: Team, as: 'awayTeam', attributes: ['id', 'name'] }
+          { model: Team, as: 'awayTeam', attributes: ['id', 'name'] },
+          { model: Match, as: 'matchResult' }
         ],
         ...paginate({}, { page, limit }),
         order: [['match_date', 'ASC']]

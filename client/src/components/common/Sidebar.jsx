@@ -19,6 +19,7 @@ const Sidebar = () => {
     { to: '/matches', icon: Trophy, label: 'Matches' },
     { to: '/ratings', icon: BarChart3, label: 'Ratings' },
     { to: '/notifications', icon: Bell, label: 'Notifications' },
+    { to: '/matches/record', icon: Trophy, label: 'Record Match' },
   ]
 
   const studentLinks = [
