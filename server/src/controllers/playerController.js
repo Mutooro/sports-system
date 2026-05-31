@@ -24,8 +24,8 @@ const playerController = {
       if (search) {
         include[0].where = {
           [require('sequelize').Op.or]: [
-            { first_name: { [require('sequelize').Op.like]: `%${search}%` } },
-            { last_name: { [require('sequelize').Op.like]: `%${search}%` } }
+            { first_name: { [require('sequelize').Op.iLike]: `%${search}%` } },
+            { last_name: { [require('sequelize').Op.iLike]: `%${search}%` } }
           ]
         };
       }
@@ -176,9 +176,9 @@ const playerController = {
             as: 'user',
             where: {
               [Op.or]: [
-                { first_name: { [Op.like]: `%${q}%` } },
-                { last_name: { [Op.like]: `%${q}%` } },
-                { email: { [Op.like]: `%${q}%` } }
+                { first_name: { [Op.iLike]: `%${q}%` } },
+                { last_name: { [Op.iLike]: `%${q}%` } },
+                { email: { [Op.iLike]: `%${q}%` } }
               ]
             },
             attributes: ['first_name', 'last_name', 'email']

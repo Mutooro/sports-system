@@ -43,8 +43,9 @@ const TeamManagement = () => {
   const { data: coachesResponse, isLoading: coachesLoading, error: coachesError } = useQuery({
     queryKey: ['coaches'],
     queryFn: () => authAPI.getCoaches(),
-    enabled: showModal === true, // Only fetch when modal opens
-    retry: 1
+    enabled: showModal === true,
+    staleTime: 0,
+    retry: 2
   })
 
   const createMutation = useMutation({
@@ -90,14 +91,6 @@ const TeamManagement = () => {
   const coaches = coachesResponse?.data?.data || []
   
   // Debug logging
-  console.log('=== TEAM MANAGEMENT DEBUG ===')
-  console.log('Show modal:', showModal)
-  console.log('Coaches response:', coachesResponse)
-  console.log('Coaches data:', coachesResponse?.data)
-  console.log('Coaches array:', coaches)
-  console.log('Coaches length:', coaches.length)
-  console.log('Coaches loading:', coachesLoading)
-  console.log('Coaches error:', coachesError)
 
   const resetForm = () => {
     setFormData({

@@ -10,7 +10,7 @@ const PlayerManagement = () => {
 
   const { data, isLoading } = useQuery({
     queryKey: ['players', filters],
-    queryFn: () => playerAPI.getAll({ ...filters, limit: 50 })
+    queryFn: () => playerAPI.getAll(Object.fromEntries(Object.entries({ ...filters, limit: 50 }).filter(([, v]) => v !== '')))
   })
 
   const players = data?.data?.data?.players || []

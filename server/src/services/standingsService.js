@@ -1,184 +1,226 @@
-const { Op } = require('sequelize');
-const { Match, Fixture, Team, Performance, Player, User } = require('../models');
+const { Op, fn, col, literal } = require('sequelize');
+const { sequelize, Match, Fixture, Team, Performance, Player, User, Rating } = require('../models');
 const { logger } = require('../utils/logger');
 
 /**
- * Calculates league standings from match results
- * Points: Win = 3, Draw = 1, Loss = 0
+ * Standings rules per project specification:
+ *   1. Points          — 3 × W + 1 × D
+ *   2. Goal Difference — GF − GA
+ *   3. Goals For       — total goals scored
+ *   4. Head-to-Head points  — points from matches BETWEEN tied teams only
+ *   5. Head-to-Head away goals — away goals in those specific h2h matches
+ *   6. Alphabetical    — final deterministic fallback
  */
 class StandingsService {
-  /**
-   * Calculate standings for a sport type
-   */
+
   static async calculateStandings(sportType = 'football') {
-    // Get all completed matches with fixtures
+    // ── Fetch all completed matches, filtering by sport via the Team association ──
+    // NOTE: sport_type lives on Team, NOT on Fixture
     const matches = await Match.findAll({
-      include: [
-        {
-          model: Fixture,
-          as: 'fixture',
-          where: { sport_type: sportType },
-          include: [
-            { model: Team, as: 'homeTeam', attributes: ['id', 'name'] },
-            { model: Team, as: 'awayTeam', attributes: ['id', 'name'] }
-          ]
-        }
-      ],
       where: {
+        result: { [Op.notIn]: ['no_result'] },
         result: { [Op.ne]: null }
-      }
+      },
+      include: [{
+        model: Fixture,
+        as: 'fixture',
+        include: [
+          {
+            model: Team, as: 'homeTeam',
+            where: { sport_type: sportType },   // ← filter here, on Team
+            attributes: ['id', 'name']
+          },
+          {
+            model: Team, as: 'awayTeam',
+            where: { sport_type: sportType },
+            attributes: ['id', 'name']
+          }
+        ]
+      }]
     });
 
-    // Initialize standings map
-    const standingsMap = new Map();
+    if (matches.length === 0) return [];
+
+    // ── Build a stats row for every team that appears in any match ──
+    const statsMap = new Map();
+
+    const getOrCreate = (team) => {
+      if (!statsMap.has(team.id)) {
+        statsMap.set(team.id, {
+          id: team.id, name: team.name,
+          played: 0, won: 0, drawn: 0, lost: 0,
+          goals_for: 0, goals_against: 0,
+          goal_difference: 0, points: 0
+        });
+      }
+      return statsMap.get(team.id);
+    };
 
     for (const match of matches) {
-      const homeTeam = match.fixture.homeTeam;
-      const awayTeam = match.fixture.awayTeam;
+      const home = match.fixture?.homeTeam;
+      const away = match.fixture?.awayTeam;
+      if (!home || !away) continue;
 
-      if (!homeTeam || !awayTeam) continue;
+      const hs = getOrCreate(home);
+      const as_ = getOrCreate(away);
 
-      // Initialize teams if not exists
-      if (!standingsMap.has(homeTeam.id)) {
-        standingsMap.set(homeTeam.id, this.createTeamStats(homeTeam));
-      }
-      if (!standingsMap.has(awayTeam.id)) {
-        standingsMap.set(awayTeam.id, this.createTeamStats(awayTeam));
-      }
+      hs.played++;
+      as_.played++;
+      hs.goals_for     += match.home_score;
+      hs.goals_against += match.away_score;
+      as_.goals_for    += match.away_score;
+      as_.goals_against+= match.home_score;
 
-      const homeStats = standingsMap.get(homeTeam.id);
-      const awayStats = standingsMap.get(awayTeam.id);
-
-      // Update played
-      homeStats.played++;
-      awayStats.played++;
-
-      // Update goals
-      homeStats.goals_for += match.home_score;
-      homeStats.goals_against += match.away_score;
-      awayStats.goals_for += match.away_score;
-      awayStats.goals_against += match.home_score;
-
-      // Update result stats
       if (match.result === 'home_win') {
-        homeStats.won++;
-        homeStats.points += 3;
-        awayStats.lost++;
+        hs.won++;  hs.points  += 3;
+        as_.lost++;
       } else if (match.result === 'away_win') {
-        awayStats.won++;
-        awayStats.points += 3;
-        homeStats.lost++;
-      } else {
-        homeStats.drawn++;
-        awayStats.drawn++;
-        homeStats.points += 1;
-        awayStats.points += 1;
+        as_.won++; as_.points += 3;
+        hs.lost++;
+      } else if (match.result === 'draw') {
+        hs.drawn++;  hs.points  += 1;
+        as_.drawn++; as_.points += 1;
       }
     }
 
-    // Convert to array and calculate derived stats
-    const standings = Array.from(standingsMap.values()).map(stats => ({
-      ...stats,
-      goal_difference: stats.goals_for - stats.goals_against
+    const standings = Array.from(statsMap.values()).map(s => ({
+      ...s,
+      goal_difference: s.goals_for - s.goals_against
     }));
 
-    // Sort: Points → Goal Difference → Goals For
+    // ── Sort with full tiebreaker chain ──
     standings.sort((a, b) => {
-      if (b.points !== a.points) return b.points - a.points;
+      if (b.points          !== a.points)          return b.points          - a.points;
       if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference;
-      return b.goals_for - a.goals_for;
+      if (b.goals_for       !== a.goals_for)       return b.goals_for       - a.goals_for;
+      return a.name.localeCompare(b.name); // stable pre-sort before h2h pass
     });
 
-    // Add position
-    standings.forEach((team, index) => {
-      team.position = index + 1;
-    });
+    // ── Second pass: apply H2H within equal groups (Pts + GD + GF all tied) ──
+    let i = 0;
+    while (i < standings.length) {
+      let j = i + 1;
+      while (
+        j < standings.length &&
+        standings[j].points          === standings[i].points &&
+        standings[j].goal_difference === standings[i].goal_difference &&
+        standings[j].goals_for       === standings[i].goals_for
+      ) j++;
 
+      if (j - i > 1) {
+        const group    = standings.slice(i, j);
+        const groupIds = group.map(r => r.id);
+        const h2h      = this._headToHead(groupIds, matches);
+
+        group.sort((a, b) => {
+          const ha = h2h[a.id], hb = h2h[b.id];
+          if (hb.points      !== ha.points)      return hb.points      - ha.points;
+          if (hb.away_goals  !== ha.away_goals)  return hb.away_goals  - ha.away_goals;
+          return a.name.localeCompare(b.name);
+        });
+
+        for (let k = 0; k < group.length; k++) standings[i + k] = group[k];
+      }
+      i = j;
+    }
+
+    standings.forEach((t, idx) => { t.position = idx + 1; });
     return standings;
   }
 
-  static createTeamStats(team) {
-    return {
-      id: team.id,
-      name: team.name,
-      played: 0,
-      won: 0,
-      drawn: 0,
-      lost: 0,
-      goals_for: 0,
-      goals_against: 0,
-      goal_difference: 0,
-      points: 0
-    };
+  // ── Head-to-head stats within a tied group ──────────────────────────────
+  static _headToHead(teamIds, allMatches) {
+    const h2h = {};
+    teamIds.forEach(id => { h2h[id] = { points: 0, away_goals: 0 }; });
+
+    for (const m of allMatches) {
+      const hid = m.fixture?.homeTeam?.id;
+      const aid = m.fixture?.awayTeam?.id;
+      if (!teamIds.includes(hid) || !teamIds.includes(aid)) continue;
+
+      h2h[aid].away_goals += m.away_score;
+
+      if (m.result === 'home_win')  { h2h[hid].points += 3; }
+      else if (m.result === 'away_win') { h2h[aid].points += 3; }
+      else if (m.result === 'draw') { h2h[hid].points += 1; h2h[aid].points += 1; }
+    }
+    return h2h;
   }
 
-  /**
-   * Get season stats: top scorers, assisters, rated players
-   */
+  // ── Season stats: top scorers, assisters, best rated ────────────────────
   static async getSeasonStats(sportType = 'football') {
-    // Top scorers
-    const topScorers = await Performance.findAll({
+    // Top scorers + assisters in one query
+    const perfRows = await Performance.findAll({
       attributes: [
         'player_id',
-        [require('../config/database').fn('SUM', require('../config/database').col('goals')), 'total_goals'],
-        [require('../config/database').fn('SUM', require('../config/database').col('assists')), 'total_assists']
+        [fn('SUM', col('Performance.goals')),   'total_goals'],
+        [fn('SUM', col('Performance.assists')), 'total_assists'],
+        [fn('COUNT', col('Performance.id')),    'matches_played']
       ],
-      include: [
-        {
-          model: Player,
-          as: 'player',
-          include: [
-            { model: User, as: 'user', attributes: ['first_name', 'last_name'] },
-            { model: Team, as: 'team', attributes: ['name'] }
-          ]
-        }
+      include: [{
+        model: Player,
+        as: 'player',
+        attributes: ['id', 'position'],
+        include: [
+          { model: User, as: 'user',   attributes: ['first_name', 'last_name'] },
+          { model: Team, as: 'team',   attributes: ['name'], where: { sport_type: sportType }, required: false }
+        ]
+      }],
+      group: [
+        'player_id',
+        'player.id', 'player.position',
+        'player->user.id', 'player->user.first_name', 'player->user.last_name',
+        'player->team.id', 'player->team.name'
       ],
-      group: ['player_id', 'player.id', 'player.user.id', 'player.team.id'],
-      order: [[require('../config/database').fn('SUM', require('../config/database').col('goals')), 'DESC']],
+      order: [[literal('"total_goals"'), 'DESC']],
       limit: 10
     });
 
-    // Top rated players
-    const { Rating } = require('../models');
-    const topRated = await Rating.findAll({
-      include: [
-        {
-          model: Player,
-          as: 'player',
-          include: [
-            { model: User, as: 'user', attributes: ['first_name', 'last_name'] },
-            { model: Team, as: 'team', attributes: ['name'] }
-          ]
-        }
-      ],
-      order: [['overall', 'DESC']],
-      limit: 10
-    });
+    const mapPerf = (rows) => rows.map(p => ({
+      id:             p.player_id,
+      name:           `${p.player.user.first_name} ${p.player.user.last_name}`,
+      team:           p.player.team?.name || '—',
+      position:       p.player.position,
+      goals:          parseInt(p.dataValues.total_goals)   || 0,
+      assists:        parseInt(p.dataValues.total_assists) || 0,
+      matches_played: parseInt(p.dataValues.matches_played) || 0
+    }));
+
+    const topScorers   = mapPerf(perfRows);
+    const topAssisters = mapPerf(
+      [...perfRows].sort((a, b) =>
+        parseInt(b.dataValues.total_assists) - parseInt(a.dataValues.total_assists)
+      ).slice(0, 5)
+    );
+
+    // Best rated — latest rating per player
+    const ratings = await sequelize.query(`
+      SELECT DISTINCT ON (r.player_id)
+        r.player_id,
+        r.overall, r.attack, r.defense, r.fitness,
+        u.first_name || ' ' || u.last_name AS name,
+        t.name AS team
+      FROM ratings r
+      JOIN players p ON r.player_id = p.id
+      JOIN users   u ON p.user_id   = u.id
+      LEFT JOIN teams t ON p.team_id = t.id AND t.sport_type = :sportType
+      ORDER BY r.player_id, r.calculation_date DESC
+    `, { replacements: { sportType }, type: sequelize.QueryTypes.SELECT });
+
+    const topRated = ratings
+      .sort((a, b) => parseFloat(b.overall) - parseFloat(a.overall))
+      .slice(0, 5)
+      .map(r => ({
+        id:      r.player_id,
+        name:    r.name,
+        team:    r.team || '—',
+        overall: parseFloat(r.overall)
+      }));
 
     return {
-      top_scorers: topScorers.map(p => ({
-        id: p.player_id,
-        name: `${p.player.user.first_name} ${p.player.user.last_name}`,
-        team: p.player.team?.name,
-        goals: parseInt(p.dataValues.total_goals) || 0,
-        assists: parseInt(p.dataValues.total_assists) || 0
-      })),
-      top_assisters: topScorers
-        .sort((a, b) => parseInt(b.dataValues.total_assists) - parseInt(a.dataValues.total_assists))
-        .slice(0, 10)
-        .map(p => ({
-          id: p.player_id,
-          name: `${p.player.user.first_name} ${p.player.user.last_name}`,
-          team: p.player.team?.name,
-          goals: parseInt(p.dataValues.total_goals) || 0,
-          assists: parseInt(p.dataValues.total_assists) || 0
-        })),
-      top_rated: topRated.map(r => ({
-        id: r.player_id,
-        name: `${r.player.user.first_name} ${r.player.user.last_name}`,
-        team: r.player.team?.name,
-        overall: parseFloat(r.overall)
-      }))
+      top_scorers:   topScorers.slice(0, 5),
+      top_assisters: topAssisters.slice(0, 5),
+      top_rated:     topRated
     };
   }
 }
