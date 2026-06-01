@@ -24,6 +24,9 @@ Team.belongsTo(Hall, { foreignKey: 'hall_id', as: 'hall' });
 Team.hasMany(Player, { foreignKey: 'team_id', as: 'players' });
 Player.belongsTo(Team, { foreignKey: 'team_id', as: 'team' });
 
+Hall.hasMany(Player, { foreignKey: 'hall_id', as: 'players' });
+Player.belongsTo(Hall, { foreignKey: 'hall_id', as: 'hall' });
+
 User.hasMany(Team, { foreignKey: 'coach_id', as: 'coachedTeams' });
 Team.belongsTo(User, { foreignKey: 'coach_id', as: 'coach' });
 
