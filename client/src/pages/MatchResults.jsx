@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import RecordMatchModal from '../components/common/RecordMatchModal'
 import { matchAPI } from '../services/api'
+import { useAuthStore } from '../store/authStore'
 
 const fmtDate  = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
@@ -33,6 +34,10 @@ const MatchResults = () => {
     queryFn:  () => matchAPI.getAll({ page, limit })
   })
 
+  const { user } = useAuthStore()
+
+  const canEdit = user && (user.role === 'coach' || user.role === 'admin')
+
   const matches    = data?.data?.data?.matches    || []
   const pagination = data?.data?.data?.pagination || {}
 
@@ -50,12 +55,14 @@ const MatchResults = () => {
           <h1 className="text-2xl font-bold text-gray-900">Match Results</h1>
           <p className="text-gray-500 text-sm">Record and manage match outcomes and player stats</p>
         </div>
-        <button
-          onClick={() => { setEditingMatch(null); setShowModal(true) }}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus size={16} /> Record Result
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => { setEditingMatch(null); setShowModal(true) }}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus size={16} /> Record Result
+          </button>
+        )}
       </div>
 
       {/* Search */}
@@ -110,13 +117,15 @@ const MatchResults = () => {
                       <td className="px-4 py-3 text-gray-500">{m.weather_conditions || '—'}</td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => { setEditingMatch(m); setShowModal(true) }}
-                            className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                            title="Edit result"
-                          >
-                            <Pencil size={15} />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => { setEditingMatch(m); setShowModal(true) }}
+                              className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                              title="Edit result"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

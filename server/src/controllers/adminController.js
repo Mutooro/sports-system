@@ -1,4 +1,4 @@
-const { User, AuditLog, sequelize, Player, Team, Fixture, Match, Performance } = require('../models');
+const { User, AuditLog, sequelize, Player, Hall, Team, Fixture, Match, Performance } = require('../models');
 const { successResponse, errorResponse, paginate } = require('../utils/helpers');
 
 async function buildStandings() {
@@ -94,6 +94,13 @@ const adminController = {
       const { count, rows: users } = await User.findAndCountAll({
         where,
         attributes: { exclude: ['password'] },
+        include: [
+          {
+            model: Player,
+            as: 'playerProfile',
+            include: [{ model: Hall, as: 'hall', attributes: ['id', 'name'] }]
+          }
+        ],
         ...paginate({}, { page, limit }),
         order: [['created_at', 'DESC']]
       });

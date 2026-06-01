@@ -63,6 +63,21 @@ const PlayerManagement = () => {
   }
 
   const handleChange = (field, value) => {
+    // When a student is selected, auto-fill known fields from the DB
+    if (field === 'user_id') {
+      const selected = students.find(s => String(s.id) === String(value))
+      if (selected) {
+        const playerProfile = selected.playerProfile || null
+        setFormData((prev) => ({
+          ...prev,
+          user_id: value,
+          student_number: playerProfile?.student_number || prev.student_number || '',
+          hall_id: playerProfile?.hall?.id || prev.hall_id || ''
+        }))
+        return
+      }
+    }
+
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -217,13 +232,23 @@ const PlayerManagement = () => {
 
             <form
               onSubmit={(e) => {
-                e.preventDefault()
-                createMutation.mutate({
-                  ...formData,
-                  height: formData.height ? parseFloat(formData.height) : null,
-                  weight: formData.weight ? parseFloat(formData.weight) : null
-                })
-              }}
+                  e.preventDefault()
+
+                  // Basic validation: ensure a student is selected
+                  if (!formData.user_id) return toast.error('Select a student to create a player for')
+
+                  // Prevent creating duplicate player if student already has a playerProfile
+                  const selected = students.find(s => String(s.id) === String(formData.user_id))
+                  if (selected?.playerProfile) {
+                    return toast.error('This student already has a player profile')
+                  }
+
+                  createMutation.mutate({
+                    ...formData,
+                    height: formData.height ? parseFloat(formData.height) : null,
+                    weight: formData.weight ? parseFloat(formData.weight) : null
+                  })
+                }}
               className="space-y-4"
             >
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -257,9 +282,13 @@ const PlayerManagement = () => {
                     type="text"
                     value={formData.student_number}
                     onChange={(e) => handleChange('student_number', e.target.value)}
+                    readOnly={!!formData.user_id}
                     className="input-field"
                     placeholder="e.g., 2026-00123"
                   />
+                  {formData.user_id && (
+                    <p className="text-xs text-gray-400 mt-1">Student number is pulled from the selected student record.</p>
+                  )}
                 </div>
               </div>
 

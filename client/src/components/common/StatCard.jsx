@@ -1,6 +1,6 @@
 import { TrendingUp, TrendingDown } from 'lucide-react'
 
-const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = 'primary' }) => {
+const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = 'primary', onClick }) => {
   const colors = {
     primary: 'bg-primary-50 text-primary-600',
     secondary: 'bg-secondary-50 text-secondary-600',
@@ -11,7 +11,11 @@ const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = 'primar
   }
 
   return (
-    <div className="card hover:shadow-md transition-shadow">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`card transition-shadow ${onClick ? 'hover:shadow-md cursor-pointer' : ''}`}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-gray-500 font-medium">{title}</p>
@@ -27,7 +31,7 @@ const StatCard = ({ title, value, icon: Icon, trend, trendValue, color = 'primar
           <Icon size={24} />
         </div>
       </div>
-    </div>
+    </button>
   )
 }
 

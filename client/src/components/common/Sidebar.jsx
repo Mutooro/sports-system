@@ -32,6 +32,7 @@ const Sidebar = () => {
   const adminLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/players', icon: Users, label: 'Players' },
+    { to: '/students', icon: UserCircle, label: 'Students' },
     { to: '/fixtures', icon: Calendar, label: 'Fixtures' },
     { to: '/teams', icon: Shield, label: 'Teams' },
     { to: '/ratings', icon: BarChart3, label: 'Ratings' },

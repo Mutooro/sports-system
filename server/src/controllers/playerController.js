@@ -100,6 +100,25 @@ const playerController = {
     try {
       const playerData = req.body;
 
+      // Require a user_id and verify the user exists
+      if (!playerData.user_id) {
+        return errorResponse(res, 'user_id is required to create a player', 400);
+      }
+
+      const user = await User.findByPk(playerData.user_id);
+      if (!user) return errorResponse(res, 'Associated user not found', 404);
+
+      // Only students should have player profiles created
+      if (user.role !== 'student') {
+        return errorResponse(res, 'Only users with role "student" can have a player profile', 400);
+      }
+
+      // Prevent duplicate player profiles for the same user
+      const existing = await Player.findOne({ where: { user_id: playerData.user_id } });
+      if (existing) {
+        return errorResponse(res, 'Player profile already exists for this user', 409);
+      }
+
       const player = await Player.create(playerData);
       const newPlayer = await Player.findByPk(player.id, {
         include: [

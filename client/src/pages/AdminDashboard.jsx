@@ -1,4 +1,5 @@
 import { Users, Shield, Calendar, Trophy, Activity } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import StatCard from '../components/common/StatCard'
 import LoadingSpinner from '../components/common/LoadingSpinner'
@@ -33,6 +34,8 @@ const EmptyState = ({ message }) => (
 
 const AdminDashboard = () => {
   // adminController.getDashboardStats already bundles everything in one call
+  const navigate = useNavigate()
+
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: () => adminAPI.getDashboardStats()
@@ -84,7 +87,13 @@ const AdminDashboard = () => {
       {/* ── Stat cards row 1 ─────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
         <StatCard title="Total Users"   value={totalUsers}   icon={Users}   color="primary" />
-        <StatCard title="Students"      value={totalStudents} icon={Shield}  color="blue" />
+        <StatCard
+          title="Students"
+          value={totalStudents}
+          icon={Shield}
+          color="blue"
+          onClick={() => navigate('/students')}
+        />
         <StatCard title="Coaches"       value={totalCoaches} icon={Users}   color="green" />
         <StatCard title="Total Players" value={totalPlayers} icon={Trophy}  color="secondary" />
       </div>
