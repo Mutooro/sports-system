@@ -10,6 +10,7 @@ const auditLog = require('../middleware/auditLog');
 // Read routes (all authenticated users)
 router.get('/', authenticate, fixtureController.getAll);
 router.get('/calendar', authenticate, fixtureController.getCalendar);
+router.get('/:id/export-pdf', authenticate, fixtureController.exportMatchSheetPdf);
 router.get('/:id', authenticate, fixtureController.getById);
 
 // Admin write routes — specific paths before /:id

@@ -100,6 +100,8 @@ const RecordMatchModal = ({ onClose, existingMatch = null, defaultFixtureId = nu
     onSuccess: () => {
       queryClient.invalidateQueries(['admin-stats'])
       queryClient.invalidateQueries(['season-stats'])
+      queryClient.invalidateQueries(['leaderboard'])
+      queryClient.invalidateQueries(['player'])
       toast.success('Player performances saved!')
       onClose()
     },

@@ -3,6 +3,8 @@ const router = express.Router();
 const ratingController = require('../controllers/ratingController');
 const { authenticate, authorize } = require('../middleware/auth');
 
+router.get('/schedule', authenticate, ratingController.getScheduleStatus);
+router.post('/recalculate-all', authenticate, authorize('coach', 'admin'), ratingController.recalculateAll);
 router.post('/calculate/:player_id', authenticate, authorize('coach', 'admin'), ratingController.calculate);
 router.get('/team/:team_id', authenticate, ratingController.getTeamRatings);
 router.get('/leaderboard', authenticate, ratingController.getLeaderboard);

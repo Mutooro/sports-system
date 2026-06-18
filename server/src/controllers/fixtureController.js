@@ -73,6 +73,82 @@ const fixtureController = {
     }
   },
 
+  // ── GET /fixtures/:id/export-pdf ───────────────────────────────────────────
+  exportMatchSheetPdf: async (req, res) => {
+    try {
+      const PDFDocument = require('pdfkit');
+      const { Player, User, FitnessRecord } = require('../models');
+
+      const fixture = await Fixture.findByPk(req.params.id, {
+        include: [
+          { model: Team, as: 'homeTeam' },
+          { model: Team, as: 'awayTeam' }
+        ]
+      });
+
+      if (!fixture) return errorResponse(res, 'Fixture not found', 404);
+
+      // Fetch players for both teams
+      const homePlayers = await Player.findAll({
+        where: { team_id: fixture.home_team_id },
+        include: [
+          { model: User, as: 'user' },
+          { model: FitnessRecord, as: 'fitnessRecords', limit: 1, order: [['record_date', 'DESC']] }
+        ]
+      });
+
+      const awayPlayers = await Player.findAll({
+        where: { team_id: fixture.away_team_id },
+        include: [
+          { model: User, as: 'user' },
+          { model: FitnessRecord, as: 'fitnessRecords', limit: 1, order: [['record_date', 'DESC']] }
+        ]
+      });
+
+      const doc = new PDFDocument({ margin: 50 });
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=MatchSheet_${fixture.id}.pdf`);
+      doc.pipe(res);
+
+      // Header
+      doc.fontSize(24).font('Helvetica-Bold').text('Makerere Sports Management', { align: 'center' });
+      doc.fontSize(16).font('Helvetica').text('Official Match Day Sheet', { align: 'center' });
+      doc.moveDown();
+
+      // Match Details
+      doc.fontSize(14).font('Helvetica-Bold').text('Match Details');
+      doc.fontSize(12).font('Helvetica')
+         .text(`Date: ${new Date(fixture.match_date).toLocaleDateString()}`)
+         .text(`Venue: ${fixture.venue}`)
+         .text(`Match: ${fixture.homeTeam?.name || 'TBA'} vs ${fixture.awayTeam?.name || 'TBA'}`);
+      doc.moveDown();
+
+      // Team Roster Helper
+      const renderTeam = (teamName, players) => {
+        doc.fontSize(14).font('Helvetica-Bold').text(teamName);
+        doc.moveDown(0.5);
+        players.forEach(p => {
+          const injury = p.fitnessRecords?.[0];
+          const injuryText = (injury && injury.injury_status !== 'fit') ? ` [INJURED: ${injury.injury_status}]` : '';
+          doc.fontSize(12).font('Helvetica').text(`- ${p.user?.first_name} ${p.user?.last_name} (${p.position})${injuryText}`);
+        });
+        doc.moveDown();
+      };
+
+      renderTeam(`HOME: ${fixture.homeTeam?.name || 'TBA'}`, homePlayers);
+      renderTeam(`AWAY: ${fixture.awayTeam?.name || 'TBA'}`, awayPlayers);
+
+      doc.end();
+
+    } catch (error) {
+      logger.error('PDF Export error:', error);
+      if (!res.headersSent) {
+        return errorResponse(res, 'Failed to export PDF', 500);
+      }
+    }
+  },
+
   // ── POST /fixtures ─────────────────────────────────────────────────────────
   create: async (req, res) => {
     try {

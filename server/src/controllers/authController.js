@@ -12,7 +12,7 @@ const authController = {
   // Register new user
   register: async (req, res) => {
     try {
-      const { email, password, first_name, last_name, role, phone, student_number, hall_id } = req.body;
+      const { email, password, first_name, last_name, role, phone } = req.body;
       
       // Check if user exists
       const existingUser = await User.findOne({ where: { email } });
@@ -29,15 +29,6 @@ const authController = {
         role: role || 'student',
         phone
       });
-      
-      // If student, create player profile
-      if (role === 'student' || !role) {
-        await Player.create({
-          user_id: user.id,
-          student_number: student_number || `STU${Date.now()}`,
-          hall_id: hall_id || null
-        });
-      }
       
       const userData = await User.findByPk(user.id, {
         attributes: { exclude: ['password'] },

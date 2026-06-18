@@ -4,8 +4,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, User, Ruler, Weight, Calendar, Trophy, Edit } from 'lucide-react'
 import { playerAPI, hallAPI, teamAPI } from '../services/api'
 import LoadingSpinner from '../components/common/LoadingSpinner'
+import MedicalBodyMap from '../components/MedicalBodyMap'
 import { useAuthStore } from '../store/authStore'
 import { toast } from 'react-toastify'
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts'
 
 const PlayerDetail = () => {
   const { id } = useParams()
@@ -130,38 +132,41 @@ const PlayerDetail = () => {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Rating Breakdown</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="card lg:col-span-1">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Rating Breakdown (Radar)</h3>
           {latestRating ? (
-            <div className="space-y-3">
-              {[
-                { label: 'Attack', value: latestRating.attack },
-                { label: 'Defense', value: latestRating.defense },
-                { label: 'Fitness', value: latestRating.fitness },
-                { label: 'Teamwork', value: latestRating.teamwork },
-                { label: 'Discipline', value: latestRating.discipline }
-              ].map((item) => (
-                <div key={item.label}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">{item.label}</span>
-                    <span className="font-medium">{item.value}/10</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div 
-                      className="bg-primary-500 h-2 rounded-full transition-all"
-                      style={{ width: `${(item.value / 10) * 100}%` }}
-                    />
-                  </div>
-                </div>
-              ))}
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart 
+                  cx="50%" 
+                  cy="50%" 
+                  outerRadius="75%" 
+                  data={[
+                    { subject: 'Attack', A: parseFloat(latestRating.attack), fullMark: 10 },
+                    { subject: 'Defense', A: parseFloat(latestRating.defense), fullMark: 10 },
+                    { subject: 'Fitness', A: parseFloat(latestRating.fitness), fullMark: 10 },
+                    { subject: 'Teamwork', A: parseFloat(latestRating.teamwork), fullMark: 10 },
+                    { subject: 'Discipline', A: parseFloat(latestRating.discipline), fullMark: 10 }
+                  ]}
+                >
+                  <PolarGrid />
+                  <PolarAngleAxis dataKey="subject" tick={{ fill: '#4b5563', fontSize: 12 }} />
+                  <PolarRadiusAxis angle={30} domain={[0, 10]} tick={false} axisLine={false} />
+                  <Radar name="Player" dataKey="A" stroke="#0ea5e9" fill="#0ea5e9" fillOpacity={0.5} />
+                </RadarChart>
+              </ResponsiveContainer>
             </div>
           ) : (
             <p className="text-gray-500 text-center py-8">No ratings available yet</p>
           )}
         </div>
 
-        <div className="card">
+        <div className="lg:col-span-1">
+          <MedicalBodyMap fitnessRecords={player.fitnessRecords || []} />
+        </div>
+
+        <div className="card lg:col-span-1">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Performances</h3>
           {recentPerformances.length === 0 ? (
             <p className="text-gray-500 text-center py-8">No match performances recorded</p>

@@ -2,6 +2,7 @@ const { Match, Fixture, Performance, Player, Team, Rating, sequelize } = require
 const { User } = require('../models');
 const { successResponse, errorResponse, paginate } = require('../utils/helpers');
 const { logger } = require('../utils/logger');
+const { calculateRatingsForPlayers } = require('../services/ratingService');
 
 const matchController = {
 
@@ -214,8 +215,11 @@ const matchController = {
         { validate: true }
       );
 
-      logger.info(`Performance data saved for match ${match_id}: ${created.length} records`);
-      return successResponse(res, created, 'Performance data recorded', 201);
+      const playerIds = performances.map((p) => p.player_id);
+      const ratingsCalculated = await calculateRatingsForPlayers(playerIds);
+
+      logger.info(`Performance data saved for match ${match_id}: ${created.length} records, ${ratingsCalculated} ratings updated`);
+      return successResponse(res, { performances: created, ratings_calculated: ratingsCalculated }, 'Performance data recorded', 201);
     } catch (error) {
       logger.error('Add performance error:', error);
       return errorResponse(res, 'Failed to record performance data', 500);

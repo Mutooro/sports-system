@@ -192,6 +192,63 @@ const teamController = {
     } catch (error) {
       return errorResponse(res, 'Failed to delete team', 500);
     }
+  },
+
+  // Bulk create teams from CSV/JSON import
+  bulkCreate: async (req, res) => {
+    try {
+      const { teams } = req.body;
+      if (!Array.isArray(teams) || teams.length === 0) {
+        return errorResponse(res, 'teams must be a non-empty array', 400);
+      }
+
+      const { Op } = require('sequelize');
+      const created = [];
+      const errors = [];
+
+      for (let i = 0; i < teams.length; i++) {
+        const row = teams[i];
+        try {
+          if (!row.name?.trim()) throw new Error('name is required');
+
+          let hall_id = row.hall_id ? parseInt(row.hall_id) : null;
+          if (!hall_id && row.hall_name) {
+            const hall = await Hall.findOne({ where: { name: { [Op.iLike]: row.hall_name.trim() } } });
+            if (!hall) throw new Error(`Hall not found: ${row.hall_name}`);
+            hall_id = hall.id;
+          }
+          if (!hall_id) throw new Error('hall_name or hall_id is required');
+
+          let coach_id = row.coach_id ? parseInt(row.coach_id) : null;
+          if (!coach_id && row.coach_email) {
+            const coach = await User.findOne({ where: { email: row.coach_email.trim().toLowerCase(), role: 'coach' } });
+            if (coach) coach_id = coach.id;
+          }
+
+          const team = await Team.create({
+            name: row.name.trim(),
+            hall_id,
+            sport_type: row.sport_type || 'football',
+            coach_id,
+            description: row.description || null
+          });
+
+          created.push(team);
+        } catch (err) {
+          errors.push({ row: i + 2, name: row.name || '', message: err.message });
+        }
+      }
+
+      logger.info(`Bulk team import: ${created.length} created, ${errors.length} failed`);
+      return successResponse(res, {
+        created: created.length,
+        failed: errors.length,
+        errors
+      }, `Imported ${created.length} team(s)`);
+    } catch (error) {
+      logger.error('Bulk create teams error:', error);
+      return errorResponse(res, 'Failed to bulk import teams', 500);
+    }
   }
 };
 

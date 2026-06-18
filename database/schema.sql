@@ -68,7 +68,7 @@ CREATE TABLE players (
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (team_id) REFERENCES teams(id) ON DELETE SET NULL,
   FOREIGN KEY (hall_id) REFERENCES halls(id) ON DELETE SET NULL,
-  INDEX idx_user (user_id),
+  UNIQUE KEY uq_players_user_id (user_id),
   INDEX idx_team (team_id),
   INDEX idx_hall (hall_id)
 ) ENGINE=InnoDB;

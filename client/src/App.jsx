@@ -22,6 +22,8 @@ import Notifications from './pages/Notifications'
 import NotFound from './pages/NotFound'
 import FixtureGenerator from './pages/FixtureGenerator'
 import RecordMatch from './pages/RecordMatch'
+import PlayerComparison from './pages/PlayerComparison'
+import TacticsPage from './pages/TacticsPage'
 
 function App() {
   const { user } = useAuthStore()
@@ -53,7 +55,9 @@ function App() {
           {/* Coach & Admin Routes (role-protected) */}
           <Route element={<RoleProtected allowedRoles={["coach", "admin"]} />}>
             <Route path="/players" element={<PlayerManagement />} />
+            <Route path="/players/compare" element={<PlayerComparison />} />
             <Route path="/players/:id" element={<PlayerDetail />} />
+            <Route path="/tactics" element={<TacticsPage />} />
             <Route path="/matches/record" element={<RecordMatch />} />
             <Route path="/teams" element={<TeamManagement />} />
             <Route path="/fixtures" element={<Fixtures />} />

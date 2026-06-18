@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Plus, Filter, Users, X, CheckCircle } from 'lucide-react'
+import { Search, Plus, Filter, Users, X, CheckCircle, Upload } from 'lucide-react'
 import { playerAPI, hallAPI, teamAPI, adminAPI } from '../services/api'
 import { SPORTS, POSITIONS } from '../utils/constants'
 import LoadingSpinner from '../components/common/LoadingSpinner'
+import BulkUploadModal from '../components/common/BulkUploadModal'
+import { PLAYER_CSV_TEMPLATE } from '../utils/csv'
 import { toast } from 'react-toastify'
 
 const PlayerManagement = () => {
@@ -11,6 +13,7 @@ const PlayerManagement = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [filters, setFilters] = useState({ position: '', hall_id: '' })
   const [showModal, setShowModal] = useState(false)
+  const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [formData, setFormData] = useState({
     user_id: '',
     student_number: '',
@@ -71,8 +74,8 @@ const PlayerManagement = () => {
         setFormData((prev) => ({
           ...prev,
           user_id: value,
-          student_number: playerProfile?.student_number || prev.student_number || '',
-          hall_id: playerProfile?.hall?.id || prev.hall_id || ''
+          student_number: playerProfile?.student_number || '',
+          hall_id: playerProfile?.hall?.id || ''
         }))
         return
       }
@@ -98,6 +101,9 @@ const PlayerManagement = () => {
   const halls = hallsData?.data?.data || []
   const teams = teamsData?.data?.data || []
   const students = studentsData?.data?.data?.users || []
+  const availableStudents = students.filter((student) => (
+    !student.playerProfile || String(student.id) === String(formData.user_id)
+  ))
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -111,13 +117,22 @@ const PlayerManagement = () => {
           <h1 className="text-2xl font-bold text-gray-900">Player Management</h1>
           <p className="text-gray-500">View and manage all registered players</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus size={18} />
-          Add Player
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowBulkUpload(true)}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Upload size={18} />
+            Bulk Upload
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Add Player
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -245,6 +260,10 @@ const PlayerManagement = () => {
 
                   createMutation.mutate({
                     ...formData,
+                    position: formData.position || null,
+                    hall_id: formData.hall_id || null,
+                    team_id: formData.team_id || null,
+                    date_of_birth: formData.date_of_birth || null,
                     height: formData.height ? parseFloat(formData.height) : null,
                     weight: formData.weight ? parseFloat(formData.weight) : null
                   })
@@ -261,14 +280,14 @@ const PlayerManagement = () => {
                     className="input-field"
                   >
                     <option value="">Select student</option>
-                    {students.map((student) => (
+                    {availableStudents.map((student) => (
                       <option key={student.id} value={student.id}>
-                        {student.first_name} {student.last_name} — {student.email}
+                        {student.first_name} {student.last_name} - {student.email}
                       </option>
                     ))}
                   </select>
-                  {students.length === 0 && !studentsLoading && !studentsError && (
-                    <p className="text-xs text-orange-600 mt-1">No student accounts available. Create the user first or refresh the page.</p>
+                  {availableStudents.length === 0 && !studentsLoading && !studentsError && (
+                    <p className="text-xs text-orange-600 mt-1">No student accounts without player profiles are available. Create a student first or refresh the page.</p>
                   )}
                   {studentsError && (
                     <p className="text-xs text-red-600 mt-1">Unable to load students. You may need admin access.</p>
@@ -282,12 +301,11 @@ const PlayerManagement = () => {
                     type="text"
                     value={formData.student_number}
                     onChange={(e) => handleChange('student_number', e.target.value)}
-                    readOnly={!!formData.user_id}
                     className="input-field"
                     placeholder="e.g., 2026-00123"
                   />
-                  {formData.user_id && (
-                    <p className="text-xs text-gray-400 mt-1">Student number is pulled from the selected student record.</p>
+                  {formData.user_id && students.find(s => String(s.id) === String(formData.user_id))?.playerProfile && (
+                    <p className="text-xs text-gray-400 mt-1">Student number is pulled from the existing player profile.</p>
                   )}
                 </div>
               </div>
@@ -401,6 +419,17 @@ const PlayerManagement = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {showBulkUpload && (
+        <BulkUploadModal
+          title="Bulk Upload Players"
+          templateFilename="players_template.csv"
+          templateContent={PLAYER_CSV_TEMPLATE}
+          uploadFn={playerAPI.bulkCreate}
+          queryKey={['players']}
+          onClose={() => setShowBulkUpload(false)}
+        />
       )}
     </div>
   )

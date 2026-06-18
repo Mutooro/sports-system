@@ -53,6 +53,7 @@ export const playerAPI = {
   getAll:  (params)     => api.get('/players', { params }),
   getById: (id)         => api.get(`/players/${id}`),
   create:  (data)       => api.post('/players', data),
+  bulkCreate: (rows)    => api.post('/players/bulk', { players: rows }),
   update:  (id, data)   => api.put(`/players/${id}`, data),
   delete:  (id)         => api.delete(`/players/${id}`),
   search:  (query)      => api.get('/players/search', { params: { q: query } })
@@ -62,6 +63,7 @@ export const teamAPI = {
   getAll:     (params)   => api.get('/teams', { params }),
   getById:    (id)       => api.get(`/teams/${id}`),
   create:     (data)     => api.post('/teams', data),
+  bulkCreate: (rows)     => api.post('/teams/bulk', { teams: rows }),
   update:     (id, data) => api.put(`/teams/${id}`, data),
   delete:     (id)       => api.delete(`/teams/${id}`),
   getPlayers: (id)       => api.get(`/teams/${id}/players`),
@@ -97,6 +99,8 @@ export const standingsAPI = {
 
 export const ratingAPI = {
   calculate:      (playerId) => api.post(`/ratings/calculate/${playerId}`),
+  recalculateAll: ()         => api.post('/ratings/recalculate-all'),
+  getSchedule:    ()         => api.get('/ratings/schedule'),
   getTeamRatings: (teamId)   => api.get(`/ratings/team/${teamId}`),
   getLeaderboard: (params)   => api.get('/ratings/leaderboard', { params })
 }

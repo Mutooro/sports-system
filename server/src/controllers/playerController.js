@@ -211,6 +211,92 @@ const playerController = {
     } catch (error) {
       return errorResponse(res, 'Search failed', 500);
     }
+  },
+
+  // Bulk create players from CSV/JSON import
+  bulkCreate: async (req, res) => {
+    try {
+      const { players } = req.body;
+      if (!Array.isArray(players) || players.length === 0) {
+        return errorResponse(res, 'players must be a non-empty array', 400);
+      }
+
+      const { Op } = require('sequelize');
+      const DEFAULT_PASSWORD = 'Student@123';
+
+      const created = [];
+      const errors = [];
+
+      for (let i = 0; i < players.length; i++) {
+        const row = players[i];
+        try {
+          const email = row.email?.trim().toLowerCase();
+          if (!email) throw new Error('email is required');
+          if (!row.student_number) throw new Error('student_number is required');
+
+          let user = await User.findOne({ where: { email } });
+          if (!user) {
+            if (!row.first_name || !row.last_name) {
+              throw new Error('first_name and last_name required for new users');
+            }
+            user = await User.create({
+              email,
+              first_name: row.first_name.trim(),
+              last_name: row.last_name.trim(),
+              password: row.password || DEFAULT_PASSWORD,
+              role: 'student'
+            });
+          } else if (user.role !== 'student') {
+            throw new Error('User exists but is not a student');
+          }
+
+          const existing = await Player.findOne({ where: { user_id: user.id } });
+          if (existing) throw new Error('Player profile already exists for this user');
+
+          const duplicateStudentNum = await Player.findOne({ where: { student_number: row.student_number } });
+          if (duplicateStudentNum) throw new Error('student_number already in use');
+
+          let hall_id = row.hall_id ? parseInt(row.hall_id) : null;
+          if (!hall_id && row.hall_name) {
+            const hall = await Hall.findOne({ where: { name: { [Op.iLike]: row.hall_name.trim() } } });
+            if (!hall) throw new Error(`Hall not found: ${row.hall_name}`);
+            hall_id = hall.id;
+          }
+
+          let team_id = row.team_id ? parseInt(row.team_id) : null;
+          if (!team_id && row.team_name) {
+            const team = await Team.findOne({ where: { name: { [Op.iLike]: row.team_name.trim() } } });
+            if (team) team_id = team.id;
+          }
+
+          const player = await Player.create({
+            user_id: user.id,
+            student_number: String(row.student_number).trim(),
+            position: row.position || null,
+            sport: row.sport || 'football',
+            hall_id,
+            team_id,
+            date_of_birth: row.date_of_birth || null,
+            height: row.height || null,
+            weight: row.weight || null
+          });
+
+          created.push(player);
+        } catch (err) {
+          errors.push({ row: i + 2, email: row.email || '', message: err.message });
+        }
+      }
+
+      logger.info(`Bulk player import: ${created.length} created, ${errors.length} failed`);
+      return successResponse(res, {
+        created: created.length,
+        failed: errors.length,
+        errors
+      }, `Imported ${created.length} player(s)`);
+    } catch (error) {
+      logger.error('Bulk create players error:', error);
+      return errorResponse(res, 'Failed to bulk import players', 500);
+    }
   }
 };
 

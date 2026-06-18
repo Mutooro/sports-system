@@ -10,6 +10,7 @@ const { sequelize } = require('./models');
 const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
 const { logger } = require('./utils/logger');
+const { startRatingScheduler } = require('./jobs/ratingScheduler');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -69,6 +70,7 @@ const startServer = async () => {
     app.listen(PORT, () => {
       logger.info(`🚀 Server running on port ${PORT}`);
       logger.info(`📚 API Documentation: http://localhost:${PORT}/api/v1`);
+      startRatingScheduler();
     });
   } catch (error) {
     logger.error('❌ Unable to connect to database:', error);

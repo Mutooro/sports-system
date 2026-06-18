@@ -5,6 +5,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 const auditLog = require('../middleware/auditLog');
 
 router.get('/', authenticate, teamController.getAll);
+router.post('/bulk', authenticate, authorize('admin'), auditLog('BULK_CREATE', 'team'), teamController.bulkCreate);
 router.get('/:id', authenticate, teamController.getById);
 router.get('/:id/players', authenticate, teamController.getTeamPlayers);
 router.get('/:id/ratings', authenticate, teamController.getTeamRatings);

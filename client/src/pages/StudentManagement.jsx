@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { UserCircle, Search, Plus, CheckCircle, X, Users } from 'lucide-react'
 import { toast } from 'react-toastify'
-import { adminAPI, authAPI, hallAPI } from '../services/api'
+import { adminAPI, authAPI } from '../services/api'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { useAuthStore } from '../store/authStore'
 
@@ -17,20 +17,12 @@ const StudentManagement = () => {
     email: '',
     first_name: '',
     last_name: '',
-    password: '',
-    student_number: '',
-    hall_id: ''
+    password: ''
   })
 
   const { data: studentsData, isLoading, isError, error } = useQuery({
     queryKey: ['students'],
     queryFn: () => adminAPI.getUsers({ role: 'student', limit: 100 }),
-    enabled: isAdmin
-  })
-
-  const { data: hallsData } = useQuery({
-    queryKey: ['halls'],
-    queryFn: () => hallAPI.getAll(),
     enabled: isAdmin
   })
 
@@ -50,7 +42,7 @@ const StudentManagement = () => {
     onSuccess: () => {
       toast.success('Student account created')
       setShowModal(false)
-      setFormData({ email: '', first_name: '', last_name: '', password: '', student_number: '', hall_id: '' })
+      setFormData({ email: '', first_name: '', last_name: '', password: '' })
       queryClient.invalidateQueries(['students'])
     },
     onError: (error) => {
@@ -59,8 +51,6 @@ const StudentManagement = () => {
   })
 
   const students = studentsData?.data?.data?.users || []
-  const halls = hallsData?.data?.data || []
-
   const filteredStudents = students.filter((student) => {
     const query = searchQuery.toLowerCase()
     return (
@@ -97,7 +87,7 @@ const StudentManagement = () => {
             <UserCircle className="text-primary-500" />
             Student Management
           </h1>
-          <p className="text-gray-500">View and manage student accounts used for player profiles.</p>
+          <p className="text-gray-500">View and manage student accounts. Add athletic details from Player Management.</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -191,7 +181,7 @@ const StudentManagement = () => {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Add New Student</h2>
-                <p className="text-sm text-gray-500">Create a student account and player profile in one step.</p>
+                <p className="text-sm text-gray-500">Create the student account first, then add a player profile when they join a team.</p>
               </div>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X size={20} />
@@ -242,31 +232,6 @@ const StudentManagement = () => {
                     onChange={(e) => handleChange('password', e.target.value)}
                     className="input-field"
                   />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Student Number</label>
-                  <input
-                    type="text"
-                    value={formData.student_number}
-                    onChange={(e) => handleChange('student_number', e.target.value)}
-                    className="input-field"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hall</label>
-                  <select
-                    value={formData.hall_id}
-                    onChange={(e) => handleChange('hall_id', e.target.value)}
-                    className="input-field"
-                  >
-                    <option value="">Select hall</option>
-                    {halls.map((hall) => (
-                      <option key={hall.id} value={hall.id}>{hall.name}</option>
-                    ))}
-                  </select>
                 </div>
               </div>
 

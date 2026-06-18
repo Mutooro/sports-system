@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom'
 import { 
   LayoutDashboard, Users, Calendar, Trophy, 
-  Bell, Settings, LogOut, Shield, BarChart3, UserCircle, Wand2 
+  Bell, Settings, LogOut, Shield, BarChart3, UserCircle, Wand2, Scale 
 } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 
@@ -14,6 +14,8 @@ const Sidebar = () => {
   const coachLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/players', icon: Users, label: 'Players' },
+    { to: '/players/compare', icon: Scale, label: 'Compare' },
+    { to: '/tactics', icon: Wand2, label: 'Tactics' },
     { to: '/fixtures', icon: Calendar, label: 'Fixtures' },
     { to: '/teams', icon: Shield, label: 'Teams' },
     { to: '/matches', icon: Trophy, label: 'Matches' },
@@ -32,6 +34,8 @@ const Sidebar = () => {
   const adminLinks = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/players', icon: Users, label: 'Players' },
+    { to: '/players/compare', icon: Scale, label: 'Compare' },
+    { to: '/tactics', icon: Wand2, label: 'Tactics' },
     { to: '/students', icon: UserCircle, label: 'Students' },
     { to: '/fixtures', icon: Calendar, label: 'Fixtures' },
     { to: '/teams', icon: Shield, label: 'Teams' },

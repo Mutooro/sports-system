@@ -3,11 +3,11 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { 
   Calendar, Users, Plus, MapPin, Clock, Pencil, 
-  CheckCircle, X, Wand2, Filter 
+  CheckCircle, X, Wand2, Filter, FileText 
 } from 'lucide-react'
 import RecordMatchModal from '../components/common/RecordMatchModal'
 import { toast } from 'react-toastify'
-import { fixtureAPI } from '../services/api'
+import api, { fixtureAPI } from '../services/api'
 import { VENUES, FIXTURE_STATUS } from '../utils/constants'
 import { useAuthStore } from '../store/authStore'
 import LoadingSpinner from '../components/common/LoadingSpinner'
@@ -60,6 +60,22 @@ const Fixtures = () => {
   const cancelEdit = () => {
     setEditingId(null)
     setEditForm({})
+  }
+
+  const handleExport = async (id) => {
+    try {
+      const response = await api.get(`/fixtures/${id}/export-pdf`, { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `MatchSheet_${id}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.parentNode.removeChild(link)
+      toast.success('Match sheet downloaded')
+    } catch (error) {
+      toast.error('Failed to export PDF')
+    }
   }
 
   const getStatusColor = (status) => {
@@ -228,10 +244,18 @@ const Fixtures = () => {
                       <span className={`px-3 py-1 text-xs font-medium rounded-full ${getStatusColor(fixture.status)}`}>
                         {fixture.status}
                       </span>
+                      <button 
+                        onClick={() => handleExport(fixture.id)}
+                        className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                        title="Export Match Sheet"
+                      >
+                        <FileText size={16} />
+                      </button>
                       {canManageFixtures && (
                         <button 
                           onClick={() => startEdit(fixture)}
                           className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Edit Fixture"
                         >
                           <Pencil size={16} />
                         </button>

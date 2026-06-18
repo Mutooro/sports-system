@@ -4,12 +4,14 @@ import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { 
   Users, Plus, Pencil, Trash2, Shield, 
-  MapPin, Trophy, X, CheckCircle, UserCheck 
+  MapPin, Trophy, X, CheckCircle, UserCheck, Upload 
 } from 'lucide-react'
 import { teamAPI, hallAPI, authAPI } from '../services/api'
 import { SPORTS } from '../utils/constants'
 import { useAuthStore } from '../store/authStore'
 import LoadingSpinner from '../components/common/LoadingSpinner'
+import BulkUploadModal from '../components/common/BulkUploadModal'
+import { TEAM_CSV_TEMPLATE } from '../utils/csv'
 
 const TeamManagement = () => {
   const navigate = useNavigate()
@@ -17,6 +19,7 @@ const TeamManagement = () => {
   const { user } = useAuthStore()
   const isAdmin = user?.role === 'admin'
   const [showModal, setShowModal] = useState(false)
+  const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [editingTeam, setEditingTeam] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -144,13 +147,22 @@ const TeamManagement = () => {
           <p className="text-gray-500">View and manage teams for your department</p>
         </div>
         {isAdmin && (
-          <button 
-            onClick={() => { setEditingTeam(null); resetForm(); setShowModal(true) }}
-            className="btn-primary flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Add Team
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowBulkUpload(true)}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Upload size={18} />
+              Bulk Upload
+            </button>
+            <button 
+              onClick={() => { setEditingTeam(null); resetForm(); setShowModal(true) }}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Plus size={18} />
+              Add Team
+            </button>
+          </div>
         )}
       </div>
 
@@ -443,6 +455,17 @@ const TeamManagement = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {showBulkUpload && (
+        <BulkUploadModal
+          title="Bulk Upload Teams"
+          templateFilename="teams_template.csv"
+          templateContent={TEAM_CSV_TEMPLATE}
+          uploadFn={teamAPI.bulkCreate}
+          queryKey={['teams']}
+          onClose={() => setShowBulkUpload(false)}
+        />
       )}
     </div>
   )
