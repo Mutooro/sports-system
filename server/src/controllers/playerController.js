@@ -2,6 +2,24 @@ const { Player, User, Team, Hall, Performance, Rating, FitnessRecord, sequelize 
 const { successResponse, errorResponse, paginate } = require('../utils/helpers');
 const { logger } = require('../utils/logger');
 
+const VALID_POSITIONS = new Set(['goalkeeper', 'defender', 'midfielder', 'forward', 'winger']);
+const POSITION_ALIASES = {
+  gk: 'goalkeeper', keeper: 'goalkeeper', goalie: 'goalkeeper',
+  def: 'defender', cb: 'defender', lb: 'defender', rb: 'defender',
+  'centre-back': 'defender', centerback: 'defender', fullback: 'defender',
+  mid: 'midfielder', cm: 'midfielder', dm: 'midfielder', am: 'midfielder',
+  fwd: 'forward', striker: 'forward', cf: 'forward', st: 'forward', attacker: 'forward',
+  wing: 'winger', lw: 'winger', rw: 'winger'
+};
+function normalizePosition(raw) {
+  if (!raw || typeof raw !== 'string' || !raw.trim()) return null;
+  const key = raw.trim().toLowerCase();
+  if (VALID_POSITIONS.has(key)) return key;
+  if (POSITION_ALIASES[key]) return POSITION_ALIASES[key];
+  for (const pos of VALID_POSITIONS) { if (key.includes(pos)) return pos; }
+  return null;
+}
+
 /**
  * Enforce the strict hall/team pairing: if team_id is set, team.hall_id must
  * equal player.hall_id. Returns an error message string on mismatch, or null
@@ -146,6 +164,7 @@ const playerController = {
 
       playerData.sport = sport;
       if (playerData.is_active === undefined) playerData.is_active = true;
+      if (playerData.position !== undefined) playerData.position = normalizePosition(playerData.position);
 
       const player = await Player.create(playerData);
       const newPlayer = await Player.findByPk(player.id, {
@@ -336,7 +355,7 @@ const playerController = {
 
           const player = await Player.create({
             user_id: user.id,
-            position: row.position || null,
+            position: normalizePosition(row.position) || null,
             sport,
             hall_id,
             team_id,

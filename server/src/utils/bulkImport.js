@@ -27,6 +27,40 @@ const lower = (v) => (v == null ? v : String(v).trim().toLowerCase());
 const trim = (v) => (v == null ? v : String(v).trim());
 
 /**
+ * Valid position enum values as defined on the Player model.
+ */
+const VALID_POSITIONS = new Set(['goalkeeper', 'defender', 'midfielder', 'forward', 'winger']);
+
+/**
+ * Common abbreviations / alternate spellings -> canonical enum value.
+ */
+const POSITION_ALIASES = {
+  gk: 'goalkeeper', keeper: 'goalkeeper', goalie: 'goalkeeper',
+  def: 'defender', cb: 'defender', lb: 'defender', rb: 'defender',
+  'centre-back': 'defender', centerback: 'defender', fullback: 'defender',
+  mid: 'midfielder', cm: 'midfielder', dm: 'midfielder', am: 'midfielder',
+  'centre-mid': 'midfielder', 'center-mid': 'midfielder',
+  fwd: 'forward', striker: 'forward', cf: 'forward', st: 'forward', attacker: 'forward',
+  wing: 'winger', lw: 'winger', rw: 'winger', 'wide-mid': 'winger'
+};
+
+/**
+ * Normalize a raw position string to a valid enum value, or return null.
+ * Accepts exact values (case-insensitive), aliases, and treats blanks as null.
+ */
+function normalizePosition(raw) {
+  if (!raw || typeof raw !== 'string' || !raw.trim()) return null;
+  const key = raw.trim().toLowerCase();
+  if (VALID_POSITIONS.has(key)) return key;
+  if (POSITION_ALIASES[key]) return POSITION_ALIASES[key];
+  // Partial match: if the raw value contains a valid position word, use it
+  for (const pos of VALID_POSITIONS) {
+    if (key.includes(pos)) return pos;
+  }
+  return null; // unrecognized — drop it rather than crashing
+}
+
+/**
  * Resolve hall by name (case-insensitive). Halls are read-only in the importer.
  */
 async function resolveHall(row) {
@@ -268,7 +302,7 @@ async function processPlayerRow(row, idx, options, indexes) {
         await existing.update({
           hall_id: hall.id,
           team_id,
-          position: row.position || existing.position,
+          position: row.position ? (normalizePosition(row.position) ?? existing.position) : existing.position,
           date_of_birth: row.date_of_birth || existing.date_of_birth,
           height: row.height || existing.height,
           weight: row.weight || existing.weight,
@@ -300,7 +334,7 @@ async function processPlayerRow(row, idx, options, indexes) {
       hall_id: hall.id,
       team_id,
       sport,
-      position: row.position || null,
+      position: normalizePosition(row.position),
       date_of_birth: row.date_of_birth || null,
       height: row.height || null,
       weight: row.weight || null,
