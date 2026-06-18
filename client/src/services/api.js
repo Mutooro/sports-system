@@ -111,6 +111,10 @@ export const notificationAPI = {
   sendBulk:           (data)   => api.post('/notifications/send', data)
 }
 
+export const bulkAPI = {
+  import: (payload) => api.post('/admin/bulk/import', payload)
+}
+
 export const adminAPI = {
   getUsers:          (params) => api.get('/admin/users', { params }),
   toggleUserStatus:  (id)     => api.put(`/admin/users/${id}/toggle`),

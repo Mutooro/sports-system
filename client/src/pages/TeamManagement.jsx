@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { 
-  Users, Plus, Pencil, Trash2, Shield, 
+  Users, Plus, Pencil, Trash2, Shield,
   MapPin, Trophy, X, CheckCircle, UserCheck, Upload 
 } from 'lucide-react'
+import BulkImportModal from '../components/common/BulkImportModal'
 import { teamAPI, hallAPI, authAPI } from '../services/api'
 import { SPORTS } from '../utils/constants'
 import { useAuthStore } from '../store/authStore'
@@ -20,6 +21,7 @@ const TeamManagement = () => {
   const isAdmin = user?.role === 'admin'
   const [showModal, setShowModal] = useState(false)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
+  const [showCoordinatedImport, setShowCoordinatedImport] = useState(false)
   const [editingTeam, setEditingTeam] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -153,7 +155,14 @@ const TeamManagement = () => {
               className="btn-secondary flex items-center gap-2"
             >
               <Upload size={18} />
-              Bulk Upload
+              Single-Section CSV
+            </button>
+            <button
+              onClick={() => setShowCoordinatedImport(true)}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Upload size={18} />
+              Coordinated Import
             </button>
             <button 
               onClick={() => { setEditingTeam(null); resetForm(); setShowModal(true) }}
@@ -465,6 +474,13 @@ const TeamManagement = () => {
           uploadFn={teamAPI.bulkCreate}
           queryKey={['teams']}
           onClose={() => setShowBulkUpload(false)}
+        />
+      )}
+
+      {showCoordinatedImport && (
+        <BulkImportModal
+          onClose={() => setShowCoordinatedImport(false)}
+          queryKeysToInvalidate={[['teams'], ['players'], ['students'], ['coaches']]}
         />
       )}
     </div>

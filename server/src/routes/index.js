@@ -10,6 +10,7 @@ const notificationRoutes = require('./notification.routes');
 const adminRoutes        = require('./admin.routes');
 const teamRoutes         = require('./team.routes');
 const hallRoutes         = require('./hall.routes');
+const bulkRoutes         = require('./bulk.routes');
 const standingsRoutes    = require('./standings.routes');
 
 router.use('/auth',          authRoutes);
@@ -22,5 +23,6 @@ router.use('/admin',         adminRoutes);
 router.use('/teams',         teamRoutes);
 router.use('/halls',         hallRoutes);
 router.use('/standings',     standingsRoutes);
+router.use('/admin/bulk',    bulkRoutes);
 
 module.exports = router;

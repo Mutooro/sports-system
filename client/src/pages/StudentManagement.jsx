@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { UserCircle, Search, Plus, CheckCircle, X, Users, Mail, Phone } from 'lucide-react'
+import { UserCircle, Search, Plus, CheckCircle, X, Users, Mail, Phone, Upload } from 'lucide-react'
+import BulkImportModal from '../components/common/BulkImportModal'
 import { toast } from 'react-toastify'
 import { adminAPI } from '../services/api'
 import LoadingSpinner from '../components/common/LoadingSpinner'
@@ -19,6 +20,7 @@ const StudentManagement = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [showCoachModal, setShowCoachModal] = useState(false)
+  const [showBulkImport, setShowBulkImport] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     first_name: '',
@@ -131,6 +133,13 @@ const StudentManagement = () => {
         </div>
         <div className="flex items-center gap-3">
           <button
+            onClick={() => setShowBulkImport(true)}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Upload size={18} />
+            Bulk Import
+          </button>
+          <button
             onClick={() => setShowCoachModal(true)}
             className="btn-secondary flex items-center gap-2"
           >
@@ -203,7 +212,7 @@ const StudentManagement = () => {
                     </td>
                     <td className="py-3 px-4 text-sm font-mono text-gray-700">{student.student_number}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{student.email}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{student.playerProfile?.hall?.name || '—'}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{student.playerProfile?.hall?.name || 'ï¿½'}</td>
                     <td className="py-3 px-4 text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs ${student.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                         {student.is_active ? 'Active' : 'Inactive'}
@@ -288,6 +297,13 @@ const StudentManagement = () => {
         </div>
       )}
 
+      {showBulkImport && (
+        <BulkImportModal
+          onClose={() => setShowBulkImport(false)}
+          queryKeysToInvalidate={[['students'], ['coaches'], ['players'], ['teams']]}
+        />
+      )}
+
       {/* Add Coach modal */}
       {showCoachModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -341,7 +357,7 @@ const StudentManagement = () => {
                 </button>
                 <button type="submit" className="btn-primary flex items-center gap-2" disabled={createCoachMutation.isPending}>
                   <CheckCircle size={18} />
-                  {createCoachMutation.isPending ? 'Creating…' : 'Create Coach'}
+                  {createCoachMutation.isPending ? 'Creatingï¿½' : 'Create Coach'}
                 </button>
               </div>
             </form>
