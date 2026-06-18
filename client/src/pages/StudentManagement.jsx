@@ -1,10 +1,15 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { UserCircle, Search, Plus, CheckCircle, X, Users } from 'lucide-react'
+import { UserCircle, Search, Plus, CheckCircle, X, Users, Mail, Phone } from 'lucide-react'
 import { toast } from 'react-toastify'
-import { adminAPI, authAPI } from '../services/api'
+import { adminAPI } from '../services/api'
 import LoadingSpinner from '../components/common/LoadingSpinner'
 import { useAuthStore } from '../store/authStore'
+
+const ROLE_OPTIONS = [
+  { value: 'student', label: 'Student' },
+  { value: 'coach', label: 'Coach' }
+]
 
 const StudentManagement = () => {
   const queryClient = useQueryClient()
@@ -13,10 +18,19 @@ const StudentManagement = () => {
 
   const [searchQuery, setSearchQuery] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showCoachModal, setShowCoachModal] = useState(false)
   const [formData, setFormData] = useState({
     email: '',
     first_name: '',
     last_name: '',
+    student_number: '',
+    phone: ''
+  })
+  const [coachForm, setCoachForm] = useState({
+    email: '',
+    first_name: '',
+    last_name: '',
+    phone: '',
     password: ''
   })
 
@@ -38,15 +52,27 @@ const StudentManagement = () => {
   })
 
   const createStudentMutation = useMutation({
-    mutationFn: (data) => authAPI.register({ ...data, role: 'student' }),
+    mutationFn: (data) => adminAPI.createUser({ ...data, role: 'student' }),
     onSuccess: () => {
       toast.success('Student account created')
       setShowModal(false)
-      setFormData({ email: '', first_name: '', last_name: '', password: '' })
+      setFormData({ email: '', first_name: '', last_name: '', student_number: '', phone: '' })
       queryClient.invalidateQueries(['students'])
     },
     onError: (error) => {
       toast.error(error.response?.data?.message || 'Failed to create student')
+    }
+  })
+
+  const createCoachMutation = useMutation({
+    mutationFn: (data) => adminAPI.createUser({ ...data, role: 'coach' }),
+    onSuccess: () => {
+      toast.success('Coach account created')
+      setShowCoachModal(false)
+      setCoachForm({ email: '', first_name: '', last_name: '', phone: '', password: '' })
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to create coach')
     }
   })
 
@@ -56,7 +82,8 @@ const StudentManagement = () => {
     return (
       student.first_name?.toLowerCase().includes(query) ||
       student.last_name?.toLowerCase().includes(query) ||
-      student.email?.toLowerCase().includes(query)
+      student.email?.toLowerCase().includes(query) ||
+      student.student_number?.toLowerCase().includes(query)
     )
   })
 
@@ -64,9 +91,22 @@ const StudentManagement = () => {
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
+  const handleCoachChange = (field, value) => {
+    setCoachForm((prev) => ({ ...prev, [field]: value }))
+  }
+
   const handleCreate = (e) => {
     e.preventDefault()
     createStudentMutation.mutate(formData)
+  }
+
+  const handleCreateCoach = (e) => {
+    e.preventDefault()
+    if (coachForm.password.length < 8) {
+      toast.error('Coach password must be at least 8 characters')
+      return
+    }
+    createCoachMutation.mutate(coachForm)
   }
 
   if (!isAdmin) {
@@ -89,13 +129,22 @@ const StudentManagement = () => {
           </h1>
           <p className="text-gray-500">View and manage student accounts. Add athletic details from Player Management.</p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus size={18} />
-          Add Student
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowCoachModal(true)}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Add Coach
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="btn-primary flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Add Student
+          </button>
+        </div>
       </div>
 
       <div className="card">
@@ -105,7 +154,7 @@ const StudentManagement = () => {
             <input
               type="text"
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-              placeholder="Search students by name or email..."
+              placeholder="Search students by name, email, or student number..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -130,10 +179,11 @@ const StudentManagement = () => {
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Student</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Student #</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hall</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Registered</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Created</th>
                   <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
                 </tr>
               </thead>
@@ -142,7 +192,7 @@ const StudentManagement = () => {
                   <tr key={student.id} className="border-b border-gray-100 hover:bg-gray-50">
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 font-medium">
+                        <div className="w-9 h-9 bg-primary-100 rounded-full flex items-center justify-center text-primary-700 font-semibold text-sm">
                           {student.first_name?.[0]}{student.last_name?.[0]}
                         </div>
                         <div>
@@ -151,8 +201,9 @@ const StudentManagement = () => {
                         </div>
                       </div>
                     </td>
+                    <td className="py-3 px-4 text-sm font-mono text-gray-700">{student.student_number}</td>
                     <td className="py-3 px-4 text-sm text-gray-600">{student.email}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{student.playerProfile?.hall?.name || 'N/A'}</td>
+                    <td className="py-3 px-4 text-sm text-gray-600">{student.playerProfile?.hall?.name || '—'}</td>
                     <td className="py-3 px-4 text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs ${student.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                         {student.is_active ? 'Active' : 'Inactive'}
@@ -175,13 +226,14 @@ const StudentManagement = () => {
         )}
       </div>
 
+      {/* Add Student modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-xl font-bold text-gray-900">Add New Student</h2>
-                <p className="text-sm text-gray-500">Create the student account first, then add a player profile when they join a team.</p>
+                <p className="text-sm text-gray-500">The student can later be assigned to a hall and team via Player Management.</p>
               </div>
               <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X size={20} />
@@ -192,47 +244,34 @@ const StudentManagement = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.first_name}
-                    onChange={(e) => handleChange('first_name', e.target.value)}
-                    className="input-field"
-                  />
+                  <input required type="text" value={formData.first_name}
+                    onChange={(e) => handleChange('first_name', e.target.value)} className="input-field" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.last_name}
-                    onChange={(e) => handleChange('last_name', e.target.value)}
-                    className="input-field"
-                  />
+                  <input required type="text" value={formData.last_name}
+                    onChange={(e) => handleChange('last_name', e.target.value)} className="input-field" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    required
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => handleChange('email', e.target.value)}
-                    className="input-field"
-                  />
+                  <input required type="email" value={formData.email}
+                    onChange={(e) => handleChange('email', e.target.value)} className="input-field" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                  <input
-                    required
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => handleChange('password', e.target.value)}
-                    className="input-field"
-                  />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Student Number</label>
+                  <input required type="text" value={formData.student_number}
+                    onChange={(e) => handleChange('student_number', e.target.value)}
+                    className="input-field" placeholder="21/U/1234" />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
+                <input type="tel" value={formData.phone}
+                  onChange={(e) => handleChange('phone', e.target.value)} className="input-field" />
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
@@ -242,6 +281,67 @@ const StudentManagement = () => {
                 <button type="submit" className="btn-primary flex items-center gap-2">
                   <CheckCircle size={18} />
                   Create Student
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Coach modal */}
+      {showCoachModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Add New Coach</h2>
+                <p className="text-sm text-gray-500">Coach accounts have access to fixtures, matches, and player management.</p>
+              </div>
+              <button onClick={() => setShowCoachModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCoach} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  <input required type="text" value={coachForm.first_name}
+                    onChange={(e) => handleCoachChange('first_name', e.target.value)} className="input-field" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  <input required type="text" value={coachForm.last_name}
+                    onChange={(e) => handleCoachChange('last_name', e.target.value)} className="input-field" />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input required type="email" value={coachForm.email}
+                  onChange={(e) => handleCoachChange('email', e.target.value)} className="input-field" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone (optional)</label>
+                  <input type="tel" value={coachForm.phone}
+                    onChange={(e) => handleCoachChange('phone', e.target.value)} className="input-field" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Temporary Password</label>
+                  <input required type="password" value={coachForm.password} minLength={8}
+                    onChange={(e) => handleCoachChange('password', e.target.value)} className="input-field" />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                <button type="button" onClick={() => setShowCoachModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary flex items-center gap-2" disabled={createCoachMutation.isPending}>
+                  <CheckCircle size={18} />
+                  {createCoachMutation.isPending ? 'Creating…' : 'Create Coach'}
                 </button>
               </div>
             </form>

@@ -2,30 +2,49 @@ const { Player, User, Team, Hall, Performance, Rating, FitnessRecord, sequelize 
 const { successResponse, errorResponse, paginate } = require('../utils/helpers');
 const { logger } = require('../utils/logger');
 
+/**
+ * Enforce the strict hall/team pairing: if team_id is set, team.hall_id must
+ * equal player.hall_id. Returns an error message string on mismatch, or null
+ * when the pairing is valid.
+ */
+async function validateHallTeamPairing(hallId, teamId) {
+  if (!teamId) return null;
+  const team = await Team.findByPk(teamId);
+  if (!team) return 'Team not found';
+  if (parseInt(team.hall_id) !== parseInt(hallId)) {
+    return `Player hall (${hallId}) does not match team hall (${team.hall_id})`;
+  }
+  return null;
+}
+
 const playerController = {
-  // Get all players with filters
+  // List players (filters by position, hall, team, sport, and free-text search).
   getAll: async (req, res) => {
     try {
-      const { page = 1, limit = 10, search, position, hall_id, team_id, sport } = req.query;
+      const { page = 1, limit = 10, search, position, hall_id, team_id, sport, include_inactive } = req.query;
 
       const where = {};
       if (position) where.position = position;
       if (hall_id) where.hall_id = hall_id;
       if (team_id) where.team_id = team_id;
       if (sport) where.sport = sport;
+      // By default only return active players; admins/coaches can pass
+      // ?include_inactive=true to see retired ones.
+      if (include_inactive !== 'true') where.is_active = true;
 
       const include = [
-        { model: User, as: 'user', attributes: ['id', 'first_name', 'last_name', 'email'] },
+        { model: User, as: 'user', attributes: ['id', 'first_name', 'last_name', 'email', 'student_number'] },
         { model: Team, as: 'team', attributes: ['id', 'name'] },
         { model: Hall, as: 'hall', attributes: ['id', 'name'] }
       ];
 
-      // Search by name
       if (search) {
+        const { Op } = require('sequelize');
         include[0].where = {
-          [require('sequelize').Op.or]: [
-            { first_name: { [require('sequelize').Op.iLike]: `%${search}%` } },
-            { last_name: { [require('sequelize').Op.iLike]: `%${search}%` } }
+          [Op.or]: [
+            { first_name: { [Op.iLike]: `%${search}%` } },
+            { last_name: { [Op.iLike]: `%${search}%` } },
+            { student_number: { [Op.iLike]: `%${search}%` } }
           ]
         };
       }
@@ -52,7 +71,7 @@ const playerController = {
     }
   },
 
-  // Get single player with full details
+  // Get a single player.
   getById: async (req, res) => {
     try {
       const { id } = req.params;
@@ -62,21 +81,21 @@ const playerController = {
           { model: User, as: 'user', attributes: { exclude: ['password'] } },
           { model: Team, as: 'team' },
           { model: Hall, as: 'hall' },
-          { 
-            model: Performance, 
+          {
+            model: Performance,
             as: 'performances',
             include: [{ model: require('../models').Match, as: 'match' }],
             limit: 10,
             order: [['created_at', 'DESC']]
           },
-          { 
-            model: Rating, 
+          {
+            model: Rating,
             as: 'ratings',
             limit: 1,
             order: [['calculation_date', 'DESC']]
           },
-          { 
-            model: FitnessRecord, 
+          {
+            model: FitnessRecord,
             as: 'fitnessRecords',
             limit: 5,
             order: [['record_date', 'DESC']]
@@ -95,39 +114,49 @@ const playerController = {
     }
   },
 
-  // Create player
+  // Create a player profile (coach/admin only). The associated user must already
+  // exist as a student; one Player row per (user, sport).
   create: async (req, res) => {
     try {
-      const playerData = req.body;
+      const playerData = { ...req.body };
 
-      // Require a user_id and verify the user exists
       if (!playerData.user_id) {
-        return errorResponse(res, 'user_id is required to create a player', 400);
+        return errorResponse(res, 'user_id is required', 400);
+      }
+      if (!playerData.hall_id) {
+        return errorResponse(res, 'hall_id is required', 400);
       }
 
       const user = await User.findByPk(playerData.user_id);
       if (!user) return errorResponse(res, 'Associated user not found', 404);
-
-      // Only students should have player profiles created
       if (user.role !== 'student') {
         return errorResponse(res, 'Only users with role "student" can have a player profile', 400);
       }
 
-      // Prevent duplicate player profiles for the same user
-      const existing = await Player.findOne({ where: { user_id: playerData.user_id } });
+      const sport = playerData.sport || 'football';
+      const existing = await Player.findOne({
+        where: { user_id: playerData.user_id, sport }
+      });
       if (existing) {
-        return errorResponse(res, 'Player profile already exists for this user', 409);
+        return errorResponse(res, `Player profile already exists for sport "${sport}"`, 409);
       }
+
+      const pairingError = await validateHallTeamPairing(playerData.hall_id, playerData.team_id);
+      if (pairingError) return errorResponse(res, pairingError, 400);
+
+      playerData.sport = sport;
+      if (playerData.is_active === undefined) playerData.is_active = true;
 
       const player = await Player.create(playerData);
       const newPlayer = await Player.findByPk(player.id, {
         include: [
-          { model: User, as: 'user', attributes: ['first_name', 'last_name', 'email'] },
-          { model: Team, as: 'team' }
+          { model: User, as: 'user', attributes: ['first_name', 'last_name', 'email', 'student_number'] },
+          { model: Team, as: 'team' },
+          { model: Hall, as: 'hall' }
         ]
       });
 
-      logger.info(`Player created: ${player.id}`);
+      logger.info(`Player created: ${player.id} (sport=${sport})`);
       return successResponse(res, newPlayer, 'Player created successfully', 201);
     } catch (error) {
       logger.error('Create player error:', error);
@@ -135,23 +164,33 @@ const playerController = {
     }
   },
 
-  // Update player
+  // Update a player profile.
   update: async (req, res) => {
     try {
       const { id } = req.params;
-      const updateData = req.body;
+      const updateData = { ...req.body };
 
       const player = await Player.findByPk(id);
       if (!player) {
         return errorResponse(res, 'Player not found', 404);
       }
 
+      // Validate the (post-update) hall/team pairing whenever either field is
+      // being touched. We use the merged values, not just the request body, so
+      // a hall change with no team change still gets validated against the
+      // current team.
+      const nextHallId = updateData.hall_id !== undefined ? updateData.hall_id : player.hall_id;
+      const nextTeamId = updateData.team_id !== undefined ? updateData.team_id : player.team_id;
+      const pairingError = await validateHallTeamPairing(nextHallId, nextTeamId);
+      if (pairingError) return errorResponse(res, pairingError, 400);
+
       await player.update(updateData);
 
       const updated = await Player.findByPk(id, {
         include: [
-          { model: User, as: 'user', attributes: ['first_name', 'last_name'] },
-          { model: Team, as: 'team' }
+          { model: User, as: 'user', attributes: ['first_name', 'last_name', 'student_number'] },
+          { model: Team, as: 'team' },
+          { model: Hall, as: 'hall' }
         ]
       });
 
@@ -163,7 +202,7 @@ const playerController = {
     }
   },
 
-  // Delete player
+  // Soft-retire a player (sets is_active=false). Keeps history intact.
   delete: async (req, res) => {
     try {
       const { id } = req.params;
@@ -173,34 +212,53 @@ const playerController = {
         return errorResponse(res, 'Player not found', 404);
       }
 
-      await player.destroy();
-      logger.info(`Player deleted: ${id}`);
-      return successResponse(res, null, 'Player deleted successfully');
+      await player.update({ is_active: false });
+      logger.info(`Player retired: ${id}`);
+      return successResponse(res, { id: player.id, is_active: false }, 'Player retired successfully');
     } catch (error) {
-      logger.error('Delete player error:', error);
-      return errorResponse(res, 'Failed to delete player', 500);
+      logger.error('Retire player error:', error);
+      return errorResponse(res, 'Failed to retire player', 500);
     }
   },
 
-  // Search players
+  // Re-activate a previously retired player.
+  reactivate: async (req, res) => {
+    try {
+      const { id } = req.params;
+      const player = await Player.findByPk(id);
+      if (!player) return errorResponse(res, 'Player not found', 404);
+
+      const pairingError = await validateHallTeamPairing(player.hall_id, player.team_id);
+      if (pairingError) return errorResponse(res, pairingError, 400);
+
+      await player.update({ is_active: true });
+      return successResponse(res, { id: player.id, is_active: true }, 'Player reactivated');
+    } catch (error) {
+      return errorResponse(res, 'Failed to reactivate player', 500);
+    }
+  },
+
+  // Search players.
   search: async (req, res) => {
     try {
       const { q } = req.query;
       const { Op } = require('sequelize');
 
       const players = await Player.findAll({
+        where: { is_active: true },
         include: [
-          { 
-            model: User, 
+          {
+            model: User,
             as: 'user',
             where: {
               [Op.or]: [
                 { first_name: { [Op.iLike]: `%${q}%` } },
                 { last_name: { [Op.iLike]: `%${q}%` } },
-                { email: { [Op.iLike]: `%${q}%` } }
+                { email: { [Op.iLike]: `%${q}%` } },
+                { student_number: { [Op.iLike]: `%${q}%` } }
               ]
             },
-            attributes: ['first_name', 'last_name', 'email']
+            attributes: ['first_name', 'last_name', 'email', 'student_number']
           },
           { model: Team, as: 'team', attributes: ['name'] }
         ],
@@ -213,7 +271,8 @@ const playerController = {
     }
   },
 
-  // Bulk create players from CSV/JSON import
+  // Bulk create players from CSV/JSON import. Mirrors the per-row constraints
+  // enforced in `create` so the import path can't bypass them.
   bulkCreate: async (req, res) => {
     try {
       const { players } = req.body;
@@ -244,17 +303,19 @@ const playerController = {
               first_name: row.first_name.trim(),
               last_name: row.last_name.trim(),
               password: row.password || DEFAULT_PASSWORD,
-              role: 'student'
+              role: 'student',
+              student_number: String(row.student_number).trim()
             });
           } else if (user.role !== 'student') {
             throw new Error('User exists but is not a student');
           }
 
-          const existing = await Player.findOne({ where: { user_id: user.id } });
-          if (existing) throw new Error('Player profile already exists for this user');
+          const sport = row.sport || 'football';
 
-          const duplicateStudentNum = await Player.findOne({ where: { student_number: row.student_number } });
-          if (duplicateStudentNum) throw new Error('student_number already in use');
+          const existing = await Player.findOne({
+            where: { user_id: user.id, sport }
+          });
+          if (existing) throw new Error(`Player profile already exists for sport "${sport}"`);
 
           let hall_id = row.hall_id ? parseInt(row.hall_id) : null;
           if (!hall_id && row.hall_name) {
@@ -262,6 +323,7 @@ const playerController = {
             if (!hall) throw new Error(`Hall not found: ${row.hall_name}`);
             hall_id = hall.id;
           }
+          if (!hall_id) throw new Error('hall_id or hall_name is required');
 
           let team_id = row.team_id ? parseInt(row.team_id) : null;
           if (!team_id && row.team_name) {
@@ -269,16 +331,19 @@ const playerController = {
             if (team) team_id = team.id;
           }
 
+          const pairingError = await validateHallTeamPairing(hall_id, team_id);
+          if (pairingError) throw new Error(pairingError);
+
           const player = await Player.create({
             user_id: user.id,
-            student_number: String(row.student_number).trim(),
             position: row.position || null,
-            sport: row.sport || 'football',
+            sport,
             hall_id,
             team_id,
             date_of_birth: row.date_of_birth || null,
             height: row.height || null,
-            weight: row.weight || null
+            weight: row.weight || null,
+            is_active: row.is_active !== undefined ? !!row.is_active : true
           });
 
           created.push(player);

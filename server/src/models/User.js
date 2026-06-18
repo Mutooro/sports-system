@@ -25,6 +25,11 @@ const User = sequelize.define('User', {
     allowNull: false,
     defaultValue: 'student'
   },
+  student_number: {
+    type: DataTypes.STRING(50),
+    allowNull: false,
+    unique: true
+  },
   first_name: {
     type: DataTypes.STRING(100),
     allowNull: false
@@ -58,5 +63,11 @@ const User = sequelize.define('User', {
     }
   }
 });
+
+// Strip sensitive fields before sending the user record to the client.
+User.prototype.toSafeJSON = function () {
+  const { password, ...rest } = this.toJSON();
+  return rest;
+};
 
 module.exports = User;

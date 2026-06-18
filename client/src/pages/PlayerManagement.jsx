@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Plus, Filter, Users, X, CheckCircle, Upload } from 'lucide-react'
+import { Search, Plus, Users, X, CheckCircle, Upload, Archive, RotateCcw } from 'lucide-react'
 import { playerAPI, hallAPI, teamAPI, adminAPI } from '../services/api'
 import { SPORTS, POSITIONS } from '../utils/constants'
 import LoadingSpinner from '../components/common/LoadingSpinner'
@@ -11,12 +11,12 @@ import { toast } from 'react-toastify'
 const PlayerManagement = () => {
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
-  const [filters, setFilters] = useState({ position: '', hall_id: '' })
+  const [filters, setFilters] = useState({ position: '', hall_id: '', sport: '' })
+  const [showInactive, setShowInactive] = useState(false)
   const [showModal, setShowModal] = useState(false)
   const [showBulkUpload, setShowBulkUpload] = useState(false)
   const [formData, setFormData] = useState({
     user_id: '',
-    student_number: '',
     position: '',
     sport: 'football',
     hall_id: '',
@@ -26,9 +26,17 @@ const PlayerManagement = () => {
     weight: ''
   })
 
+  const filterParams = Object.fromEntries(
+    Object.entries({
+      ...filters,
+      search: searchQuery || undefined,
+      include_inactive: showInactive ? 'true' : undefined
+    }).filter(([, v]) => v !== '' && v !== undefined)
+  )
+
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['players', filters, searchQuery],
-    queryFn: () => playerAPI.getAll(Object.fromEntries(Object.entries({ ...filters, search: searchQuery, limit: 50 }).filter(([, v]) => v !== ''))),
+    queryKey: ['players', filterParams],
+    queryFn: () => playerAPI.getAll({ ...filterParams, limit: 50 }),
     keepPreviousData: true
   })
 
@@ -42,19 +50,21 @@ const PlayerManagement = () => {
     queryFn: () => teamAPI.getAll({ limit: 100 })
   })
 
-  const { data: studentsData, isLoading: studentsLoading, error: studentsError } = useQuery({
-    queryKey: ['students'],
-    queryFn: () => adminAPI.getUsers({ role: 'student', limit: 100 }),
+  // Fetch all students and filter client-side for ones without a profile in
+  // the currently-selected sport. This preserves multi-sport athletes: a
+  // student who has a football Player row but no basketball Player row still
+  // appears when the form's sport is basketball.
+  const { data: studentsData } = useQuery({
+    queryKey: ['students-all'],
+    queryFn: () => adminAPI.getUsers({ role: 'student', limit: 200 }),
     enabled: showModal,
-    staleTime: 0,
-    retry: 1
+    staleTime: 0
   })
 
   const closeModal = () => {
     setShowModal(false)
     setFormData({
       user_id: '',
-      student_number: '',
       position: '',
       sport: 'football',
       hall_id: '',
@@ -66,21 +76,18 @@ const PlayerManagement = () => {
   }
 
   const handleChange = (field, value) => {
-    // When a student is selected, auto-fill known fields from the DB
     if (field === 'user_id') {
       const selected = students.find(s => String(s.id) === String(value))
       if (selected) {
-        const playerProfile = selected.playerProfile || null
         setFormData((prev) => ({
           ...prev,
           user_id: value,
-          student_number: playerProfile?.student_number || '',
-          hall_id: playerProfile?.hall?.id || ''
+          hall_id: selected.playerProfile?.hall?.id || '',
+          student_number: selected.student_number || ''
         }))
         return
       }
     }
-
     setFormData((prev) => ({ ...prev, [field]: value }))
   }
 
@@ -96,14 +103,42 @@ const PlayerManagement = () => {
     }
   })
 
+  const retireMutation = useMutation({
+    mutationFn: playerAPI.delete,
+    onSuccess: () => {
+      toast.success('Player retired (kept in history)')
+      queryClient.invalidateQueries(['players'])
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to retire player')
+    }
+  })
+
+  const reactivateMutation = useMutation({
+    mutationFn: playerAPI.reactivate,
+    onSuccess: () => {
+      toast.success('Player reactivated')
+      queryClient.invalidateQueries(['players'])
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || 'Failed to reactivate player')
+    }
+  })
+
   const playersRaw = data?.data?.data?.players ?? data?.data?.data ?? data?.data
   const players = Array.isArray(playersRaw) ? playersRaw : []
   const halls = hallsData?.data?.data || []
   const teams = teamsData?.data?.data || []
   const students = studentsData?.data?.data?.users || []
-  const availableStudents = students.filter((student) => (
-    !student.playerProfile || String(student.id) === String(formData.user_id)
-  ))
+
+  // Only show students who don't already have a Player profile in the
+  // currently-selected sport. This is what makes multi-sport selection work.
+  const availableStudents = students.filter((student) => {
+    const sport = formData.sport || 'football'
+    return !student.playerProfile
+      || String(student.playerProfile.sport) !== sport
+      || String(student.id) === String(formData.user_id)
+  })
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -115,7 +150,7 @@ const PlayerManagement = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Player Management</h1>
-          <p className="text-gray-500">View and manage all registered players</p>
+          <p className="text-gray-500">Create, assign, and retire hall athlete profiles</p>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -141,44 +176,55 @@ const PlayerManagement = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input
               type="text"
-              placeholder="Search players by name..."
+              placeholder="Search by name or student number..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
             />
           </form>
-          <div className="flex gap-3">
-            <select 
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 outline-none"
-              value={filters.position}
-              onChange={(e) => setFilters({ ...filters, position: e.target.value })}
-            >
-              <option value="">All Positions</option>
-              <option value="goalkeeper">Goalkeeper</option>
-              <option value="defender">Defender</option>
-              <option value="midfielder">Midfielder</option>
-              <option value="forward">Forward</option>
-              <option value="winger">Winger</option>
-            </select>
-            <button className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
-              <Filter size={18} />
-              Filters
-            </button>
-          </div>
+          <select
+            value={filters.position}
+            onChange={(e) => setFilters({ ...filters, position: e.target.value })}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">All positions</option>
+            {POSITIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+          <select
+            value={filters.sport}
+            onChange={(e) => setFilters({ ...filters, sport: e.target.value })}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">All sports</option>
+            {SPORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+          <select
+            value={filters.hall_id}
+            onChange={(e) => setFilters({ ...filters, hall_id: e.target.value })}
+            className="px-3 py-2 border border-gray-300 rounded-lg"
+          >
+            <option value="">All halls</option>
+            {halls.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+          </select>
+          <label className="flex items-center gap-2 text-sm text-gray-700 px-2">
+            <input
+              type="checkbox"
+              checked={showInactive}
+              onChange={(e) => setShowInactive(e.target.checked)}
+              className="rounded"
+            />
+            Show retired
+          </label>
         </div>
 
         {isLoading ? (
           <LoadingSpinner className="h-64" />
         ) : isError ? (
-          <div className="text-center py-12">
-            <Users className="mx-auto mb-3 text-red-300" size={48} />
-            <p className="text-red-600">Unable to load players.</p>
-            <p className="text-sm text-gray-500">{error?.response?.data?.message || error?.message || 'Try refreshing the page.'}</p>
-          </div>
+          <p className="text-red-600 text-sm py-8 text-center">{error?.response?.data?.message || 'Failed to load players'}</p>
         ) : players.length === 0 ? (
           <div className="text-center py-12">
             <Users className="mx-auto mb-3 text-gray-300" size={48} />
-            <p className="text-gray-500">No players found</p>
+            <p className="text-gray-500">No players yet.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -186,43 +232,46 @@ const PlayerManagement = () => {
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Player</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Sport</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Position</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Team</th>
                   <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Hall</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Height</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Weight</th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Team</th>
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
+                  <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {players.map((player) => (
-                  <tr key={player.id} className="border-b border-gray-100 hover:bg-gray-50">
+                {players.map((p) => (
+                  <tr key={p.id} className={`border-b border-gray-100 hover:bg-gray-50 ${p.is_active ? '' : 'opacity-60'}`}>
                     <td className="py-3 px-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-primary-100 rounded-full flex items-center justify-center">
-                          <span className="text-primary-700 font-medium">
-                            {player.user?.first_name?.[0]}{player.user?.last_name?.[0]}
-                          </span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{player.user?.first_name} {player.user?.last_name}</p>
-                          <p className="text-sm text-gray-500">{player.student_number}</p>
-                        </div>
-                      </div>
+                      <p className="font-medium text-gray-900">{p.user?.first_name} {p.user?.last_name}</p>
+                      <p className="text-xs text-gray-500 font-mono">{p.user?.student_number || '—'}</p>
                     </td>
+                    <td className="py-3 px-4 text-sm text-gray-700 capitalize">{p.sport}</td>
+                    <td className="py-3 px-4 text-sm text-gray-700 capitalize">{p.position || '—'}</td>
+                    <td className="py-3 px-4 text-sm text-gray-700">{p.hall?.name || '—'}</td>
+                    <td className="py-3 px-4 text-sm text-gray-700">{p.team?.name || 'Unassigned'}</td>
                     <td className="py-3 px-4">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full capitalize">
-                        {player.position || 'N/A'}
+                      <span className={`px-2 py-1 rounded-full text-xs ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                        {p.is_active ? 'Active' : 'Retired'}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{player.team?.name || 'Unassigned'}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{player.hall?.name || 'N/A'}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{player.height ? `${player.height} cm` : '-'}</td>
-                    <td className="py-3 px-4 text-sm text-gray-600">{player.weight ? `${player.weight} kg` : '-'}</td>
-                    <td className="py-3 px-4">
-                      <a href={`/players/${player.id}`} className="text-primary-600 hover:text-primary-700 text-sm font-medium">
-                        View
-                      </a>
+                    <td className="py-3 px-4 text-right">
+                      {p.is_active ? (
+                        <button
+                          onClick={() => retireMutation.mutate(p.id)}
+                          className="text-xs px-2 py-1 text-red-600 hover:bg-red-50 rounded flex items-center gap-1 ml-auto"
+                        >
+                          <Archive size={12} /> Retire
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => reactivateMutation.mutate(p.id)}
+                          className="text-xs px-2 py-1 text-primary-600 hover:bg-primary-50 rounded flex items-center gap-1 ml-auto"
+                        >
+                          <RotateCcw size={12} /> Reactivate
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -232,85 +281,49 @@ const PlayerManagement = () => {
         )}
       </div>
 
+      {/* Add player modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-xl font-bold text-gray-900">Add New Player</h2>
-                <p className="text-sm text-gray-500">Create a new player profile from an existing student account.</p>
-              </div>
+              <h2 className="text-xl font-bold text-gray-900">Add New Player Profile</h2>
               <button onClick={closeModal} className="p-2 hover:bg-gray-100 rounded-lg">
                 <X size={20} />
               </button>
             </div>
 
-            <form
-              onSubmit={(e) => {
-                  e.preventDefault()
-
-                  // Basic validation: ensure a student is selected
-                  if (!formData.user_id) return toast.error('Select a student to create a player for')
-
-                  // Prevent creating duplicate player if student already has a playerProfile
-                  const selected = students.find(s => String(s.id) === String(formData.user_id))
-                  if (selected?.playerProfile) {
-                    return toast.error('This student already has a player profile')
-                  }
-
-                  createMutation.mutate({
-                    ...formData,
-                    position: formData.position || null,
-                    hall_id: formData.hall_id || null,
-                    team_id: formData.team_id || null,
-                    date_of_birth: formData.date_of_birth || null,
-                    height: formData.height ? parseFloat(formData.height) : null,
-                    weight: formData.weight ? parseFloat(formData.weight) : null
-                  })
-                }}
-              className="space-y-4"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Student *</label>
-                  <select
-                    required
-                    value={formData.user_id}
-                    onChange={(e) => handleChange('user_id', e.target.value)}
-                    className="input-field"
-                  >
-                    <option value="">Select student</option>
-                    {availableStudents.map((student) => (
-                      <option key={student.id} value={student.id}>
-                        {student.first_name} {student.last_name} - {student.email}
-                      </option>
-                    ))}
-                  </select>
-                  {availableStudents.length === 0 && !studentsLoading && !studentsError && (
-                    <p className="text-xs text-orange-600 mt-1">No student accounts without player profiles are available. Create a student first or refresh the page.</p>
-                  )}
-                  {studentsError && (
-                    <p className="text-xs text-red-600 mt-1">Unable to load students. You may need admin access.</p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Student Number *</label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.student_number}
-                    onChange={(e) => handleChange('student_number', e.target.value)}
-                    className="input-field"
-                    placeholder="e.g., 2026-00123"
-                  />
-                  {formData.user_id && students.find(s => String(s.id) === String(formData.user_id))?.playerProfile && (
-                    <p className="text-xs text-gray-400 mt-1">Student number is pulled from the existing player profile.</p>
-                  )}
-                </div>
+            <form onSubmit={(e) => { e.preventDefault(); createMutation.mutate(formData) }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Student</label>
+                <select
+                  required
+                  value={formData.user_id}
+                  onChange={(e) => handleChange('user_id', e.target.value)}
+                  className="input-field"
+                >
+                  <option value="">Select a student</option>
+                  {availableStudents.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.first_name} {s.last_name} ({s.student_number})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Multi-sport athletes appear once per sport. Pick a different sport above to add a second profile.
+                </p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Sport</label>
+                  <select
+                    value={formData.sport}
+                    onChange={(e) => handleChange('sport', e.target.value)}
+                    className="input-field"
+                  >
+                    {SPORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
                   <select
@@ -319,34 +332,19 @@ const PlayerManagement = () => {
                     className="input-field"
                   >
                     <option value="">Select position</option>
-                    {POSITIONS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Sport</label>
-                  <select
-                    value={formData.sport}
-                    onChange={(e) => handleChange('sport', e.target.value)}
-                    className="input-field"
-                  >
-                    {SPORTS.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
-                    ))}
+                    {POSITIONS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Hall</label>
                   <select
+                    required
                     value={formData.hall_id}
                     onChange={(e) => handleChange('hall_id', e.target.value)}
                     className="input-field"
                   >
                     <option value="">Select hall</option>
-                    {halls.map((hall) => (
-                      <option key={hall.id} value={hall.id}>{hall.name}</option>
-                    ))}
+                    {halls.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
                   </select>
                 </div>
               </div>
@@ -359,60 +357,43 @@ const PlayerManagement = () => {
                     onChange={(e) => handleChange('team_id', e.target.value)}
                     className="input-field"
                   >
-                    <option value="">Select team</option>
-                    {teams.map((team) => (
-                      <option key={team.id} value={team.id}>{team.name}</option>
-                    ))}
+                    <option value="">Unassigned</option>
+                    {teams
+                      .filter((t) => !formData.hall_id || String(t.hall_id) === String(formData.hall_id))
+                      .map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Only teams from the selected hall are shown (strict pairing).
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date of Birth</label>
-                  <input
-                    type="date"
-                    value={formData.date_of_birth}
+                  <input type="date" value={formData.date_of_birth}
                     onChange={(e) => handleChange('date_of_birth', e.target.value)}
-                    className="input-field"
-                  />
+                    className="input-field" />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Height (cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formData.height}
+                  <input type="number" step="0.1" value={formData.height}
                     onChange={(e) => handleChange('height', e.target.value)}
-                    className="input-field"
-                    placeholder="e.g., 180"
-                  />
+                    className="input-field" placeholder="e.g., 180" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={formData.weight}
+                  <input type="number" step="0.1" value={formData.weight}
                     onChange={(e) => handleChange('weight', e.target.value)}
-                    className="input-field"
-                    placeholder="e.g., 75"
-                  />
+                    className="input-field" placeholder="e.g., 75" />
                 </div>
               </div>
 
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={closeModal} className="flex-1 btn-outline">
-                  Cancel
-                </button>
-                <button type="submit" className="flex-1 btn-primary" disabled={createMutation.isLoading}>
-                  {createMutation.isLoading ? (
-                    'Saving...'
-                  ) : (
-                    <>
-                      <CheckCircle size={16} className="inline mr-1" />
-                      Create Player
-                    </>
+                <button type="button" onClick={closeModal} className="flex-1 btn-outline">Cancel</button>
+                <button type="submit" className="flex-1 btn-primary" disabled={createMutation.isPending}>
+                  {createMutation.isPending ? 'Saving...' : (
+                    <><CheckCircle size={16} className="inline mr-1" />Create Player</>
                   )}
                 </button>
               </div>

@@ -11,6 +11,7 @@ const routes = require('./routes');
 const errorHandler = require('./middleware/errorHandler');
 const { logger } = require('./utils/logger');
 const { startRatingScheduler } = require('./jobs/ratingScheduler');
+const { migrate: migrateStudentPlayer } = require('./scripts/migrateStudentPlayer');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,8 +40,22 @@ app.use(compression());
 app.use(morgan('combined', { stream: { write: msg => logger.info(msg.trim()) } }));
 
 // Health check
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+app.get('/health', async (req, res) => {
+  try {
+    await sequelize.authenticate();
+    return res.json({
+      status: 'OK',
+      database: 'up',
+      timestamp: new Date().toISOString()
+    });
+  } catch (err) {
+    return res.status(503).json({
+      status: 'DEGRADED',
+      database: 'down',
+      message: err.message,
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // API Routes
@@ -61,19 +76,30 @@ app.use((req, res) => {
 const startServer = async () => {
   try {
     await sequelize.authenticate();
-    logger.info('✅ Database connected successfully.');
+    logger.info('Database connected successfully.');
+
+    // Tighten the Student/Player model (idempotent; safe to re-run).
+    if (process.env.NODE_ENV !== 'production') {
+      try {
+        await migrateStudentPlayer();
+      } catch (migErr) {
+        logger.error('Student/Player migration failed:', migErr);
+      }
+    } else {
+      logger.info('Skipping Student/Player auto-migration in production. Run `node src/scripts/migrateStudentPlayer.js` manually if needed.');
+    }
 
     // Sync models (use { force: true } only in development to reset)
     await sequelize.sync({ alter: process.env.NODE_ENV === 'development' });
-    logger.info('✅ Database models synchronized.');
+    logger.info('Database models synchronized.');
 
     app.listen(PORT, () => {
-      logger.info(`🚀 Server running on port ${PORT}`);
-      logger.info(`📚 API Documentation: http://localhost:${PORT}/api/v1`);
+      logger.info(`Server running on port ${PORT}`);
+      logger.info(`API base: http://localhost:${PORT}/api/v1`);
       startRatingScheduler();
     });
   } catch (error) {
-    logger.error('❌ Unable to connect to database:', error);
+    logger.error('Unable to connect to database:', error);
     process.exit(1);
   }
 };

@@ -44,6 +44,8 @@ export function downloadCsv(filename, content) {
   URL.revokeObjectURL(url)
 }
 
+// student_number is now required (lives on users). sport drives the multi-sport
+// Player row creation: one Player per (user, sport) per the tightened model.
 export const PLAYER_CSV_TEMPLATE = `email,first_name,last_name,student_number,position,sport,hall_name,team_name,date_of_birth,height,weight
 student@makerere.ac.ug,John,Doe,21/U/1234,midfielder,football,Mitchell Hall,Mitchell FC,2003-05-15,175,70
 student2@makerere.ac.ug,Jane,Smith,21/U/5678,forward,football,Nkrumah Hall,,2002-08-20,168,62`

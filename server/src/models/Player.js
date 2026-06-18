@@ -10,16 +10,10 @@ const Player = sequelize.define('Player', {
   user_id: {
     type: DataTypes.INTEGER,
     allowNull: false,
-    unique: true,
     references: {
       model: 'users',
       key: 'id'
     }
-  },
-  student_number: {
-    type: DataTypes.STRING(50),
-    allowNull: false,
-    unique: true
   },
   height: {
     type: DataTypes.DECIMAL(5, 2),
@@ -37,6 +31,7 @@ const Player = sequelize.define('Player', {
   },
   sport: {
     type: DataTypes.ENUM('football', 'rugby', 'basketball', 'swimming', 'athletics'),
+    allowNull: false,
     defaultValue: 'football'
   },
   team_id: {
@@ -49,11 +44,12 @@ const Player = sequelize.define('Player', {
   },
   hall_id: {
     type: DataTypes.INTEGER,
-    allowNull: true,
+    allowNull: false,
     references: {
       model: 'halls',
       key: 'id'
-    }
+    },
+    comment: 'Required. Must match team.hall_id when team_id is set (strict pairing).'
   },
   date_of_birth: {
     type: DataTypes.DATEONLY,
@@ -66,9 +62,18 @@ const Player = sequelize.define('Player', {
   bio: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+  is_active: {
+    type: DataTypes.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    comment: 'Soft retirement. False hides the player from active workflows without deactivating the underlying student account.'
   }
 }, {
-  tableName: 'players'
+  tableName: 'players',
+  indexes: [
+    { unique: true, fields: ['user_id', 'sport'], name: 'uq_players_user_sport' }
+  ]
 });
 
 module.exports = Player;

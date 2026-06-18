@@ -50,13 +50,14 @@ export const authAPI = {
 }
 
 export const playerAPI = {
-  getAll:  (params)     => api.get('/players', { params }),
-  getById: (id)         => api.get(`/players/${id}`),
-  create:  (data)       => api.post('/players', data),
-  bulkCreate: (rows)    => api.post('/players/bulk', { players: rows }),
-  update:  (id, data)   => api.put(`/players/${id}`, data),
-  delete:  (id)         => api.delete(`/players/${id}`),
-  search:  (query)      => api.get('/players/search', { params: { q: query } })
+  getAll:       (params)   => api.get('/players', { params }),
+  getById:      (id)       => api.get(`/players/${id}`),
+  create:       (data)     => api.post('/players', data),
+  bulkCreate:   (rows)     => api.post('/players/bulk', { players: rows }),
+  update:       (id, data) => api.put(`/players/${id}`, data),
+  delete:       (id)       => api.delete(`/players/${id}`),
+  reactivate:   (id)       => api.post(`/players/${id}/reactivate`),
+  search:       (query)    => api.get('/players/search', { params: { q: query } })
 }
 
 export const teamAPI = {
@@ -85,7 +86,6 @@ export const fixtureAPI = {
 export const matchAPI = {
   getAll:         (params)        => api.get('/matches', { params }),
   getById:        (id)            => api.get(`/matches/${id}`),
-  // FIX: was calling /matches?sort=recent — correct route is /matches/recent
   getRecent:      (limit = 5)     => api.get('/matches/recent', { params: { limit } }),
   create:         (data)          => api.post('/matches', data),
   update:         (id, data)      => api.put(`/matches/${id}`, data),
@@ -114,6 +114,7 @@ export const notificationAPI = {
 export const adminAPI = {
   getUsers:          (params) => api.get('/admin/users', { params }),
   toggleUserStatus:  (id)     => api.put(`/admin/users/${id}/toggle`),
+  createUser:        (data)   => api.post('/admin/users', data),
   getAuditLogs:      (params) => api.get('/admin/audit-logs', { params }),
   getDashboardStats: ()       => api.get('/admin/dashboard-stats')
 }

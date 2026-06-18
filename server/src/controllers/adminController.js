@@ -83,7 +83,7 @@ async function buildStandings() {
 }
 
 const adminController = {
-  // Get all users
+  // List users (admin only).
   getUsers: async (req, res) => {
     try {
       const { page = 1, limit = 20, role, is_active } = req.query;
@@ -114,7 +114,7 @@ const adminController = {
     }
   },
 
-  // Toggle user status
+  // Toggle user status.
   toggleUserStatus: async (req, res) => {
     try {
       const user = await User.findByPk(req.params.id);
@@ -129,7 +129,52 @@ const adminController = {
     }
   },
 
-  // Get audit logs
+  // Admin-only user creation. Used to mint coach (and additional admin) accounts
+  // since /auth/register is restricted to students.
+  createUser: async (req, res) => {
+    try {
+      const { email, password, first_name, last_name, role, phone, student_number } = req.body;
+
+      const allowedRoles = ['student', 'coach', 'admin'];
+      if (!allowedRoles.includes(role)) {
+        return errorResponse(res, 'role must be one of student, coach, admin', 400);
+      }
+
+      if (role === 'admin' && req.user.role !== 'admin') {
+        return errorResponse(res, 'Only an existing admin can create another admin', 403);
+      }
+
+      if (role === 'student' && (!student_number || String(student_number).trim() === '')) {
+        return errorResponse(res, 'student_number is required for student accounts', 400);
+      }
+
+      const data = {
+        email,
+        password,
+        first_name,
+        last_name,
+        role,
+        phone,
+        is_active: true
+      };
+      if (role === 'student') data.student_number = String(student_number).trim();
+
+      const user = await User.create(data);
+      const safe = user.toSafeJSON();
+      // Phone is admin-visible on coach/admin accounts only; strip for students.
+      if (role === 'student') delete safe.phone;
+
+      return successResponse(res, safe, `${role} account created`, 201);
+    } catch (error) {
+      if (error.name === 'SequelizeUniqueConstraintError') {
+        const field = error.errors?.[0]?.path || 'field';
+        return errorResponse(res, `A user with that ${field} already exists`, 409);
+      }
+      return errorResponse(res, 'Failed to create user', 500);
+    }
+  },
+
+  // Get audit logs.
   getAuditLogs: async (req, res) => {
     try {
       const { page = 1, limit = 50, action, entity_type } = req.query;
@@ -155,7 +200,7 @@ const adminController = {
     }
   },
 
-  // Table standings
+  // Table standings (top 5).
   getStandings: async (req, res) => {
     try {
       const standings = await buildStandings();
@@ -165,7 +210,7 @@ const adminController = {
     }
   },
 
-  // Dashboard stats
+  // Dashboard stats.
   getDashboardStats: async (req, res) => {
     try {
       const { Op } = require('sequelize');
@@ -175,6 +220,7 @@ const adminController = {
         totalStudents,
         totalCoaches,
         totalPlayers,
+        activePlayers,
         totalFixtures,
         upcomingFixturesCount,
         totalMatches
@@ -183,6 +229,7 @@ const adminController = {
         User.count({ where: { role: 'student' } }),
         User.count({ where: { role: 'coach' } }),
         Player.count(),
+        Player.count({ where: { is_active: true } }),
         Fixture.count(),
         Fixture.count({ where: { status: 'scheduled' } }),
         Match.count()
@@ -249,6 +296,7 @@ const adminController = {
         totalStudents,
         totalCoaches,
         totalPlayers,
+        activePlayers,
         totalFixtures,
         upcomingFixturesCount,
         upcomingFixtures: upcomingFixtures.map((fixture) => ({
