@@ -118,16 +118,20 @@ const FixtureGenerator = {
       throw new Error(`Need at least 2 teams. Found ${teams.length}.`);
     }
 
-    // Build first-leg pairs
-    let pairs = buildRoundRobinPairs(teams);
-    const firstLegRounds = teams.length % 2 === 0
-      ? teams.length - 1
-      : teams.length;
+    // Build first-leg pairs (compute once and reuse for return leg)
+    const firstLegPairs = buildRoundRobinPairs(teams);
+    let pairs = [...firstLegPairs];
 
-    // Append return-leg pairs with swapped home/away
+    // Derive round count directly from what buildRoundRobinPairs produces:
+    //   - Even N teams  → padded length = N  → rounds = N - 1
+    //   - Odd  N teams  → padded length = N+1 → rounds = N
+    const paddedCount   = teams.length % 2 === 0 ? teams.length : teams.length + 1;
+    const firstLegRounds = paddedCount - 1;
+
+    // Append return-leg pairs with swapped home/away (reuse cached first-leg pairs)
     if (include_return_leg) {
-      const returnPairs = buildRoundRobinPairs(teams).map(p => ({
-        round: p.round + firstLegRounds,
+      const returnPairs = firstLegPairs.map(p => ({
+        round:        p.round + firstLegRounds,
         home_team_id: p.away_team_id,
         away_team_id: p.home_team_id
       }));
