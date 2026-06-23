@@ -5,12 +5,12 @@ import { fixtureAPI, matchAPI, teamAPI } from '../../services/api'
 import { useAuthStore } from '../../store/authStore'
 import { toast } from 'react-toastify'
 
-const defaultPerf = (player) => ({
+const defaultPerf = (player, minutes = 0) => ({
   player_id:       player.id,
   player_name:     player.user ? `${player.user.first_name} ${player.user.last_name}` : `Player ${player.id}`,
   goals:           0,
   assists:         0,
-  minutes_played:  90,
+  minutes_played:  minutes,
   yellow_cards:    0,
   red_cards:       0,
   tackles:         0,
@@ -55,22 +55,37 @@ const RecordMatchModal = ({ onClose, existingMatch = null, defaultFixtureId = nu
   useQuery({
     queryKey: ['team-players-modal', homeTeamId, awayTeamId],
     queryFn: async () => {
-      // Use teamAPI (goes through axios with auth header automatically)
-      const [homeRes, awayRes] = await Promise.all([
+      const [homePlayersRes, awayPlayersRes, homeFormationRes, awayFormationRes] = await Promise.all([
         homeTeamId ? teamAPI.getPlayers(homeTeamId) : Promise.resolve({ data: { data: [] } }),
-        awayTeamId ? teamAPI.getPlayers(awayTeamId) : Promise.resolve({ data: { data: [] } })
+        awayTeamId ? teamAPI.getPlayers(awayTeamId) : Promise.resolve({ data: { data: [] } }),
+        homeTeamId ? teamAPI.getFormation(homeTeamId) : Promise.resolve({ data: { data: { formation: null } } }),
+        awayTeamId ? teamAPI.getFormation(awayTeamId) : Promise.resolve({ data: { data: { formation: null } } })
       ])
 
-      // teamController.getPlayers returns successResponse(res, players)
-      // so shape is response.data.data = [...players]
-      const homePlayers = homeRes?.data?.data || []
-      const awayPlayers = awayRes?.data?.data || []
-      const all = [...homePlayers, ...awayPlayers]
+      const homePlayers = homePlayersRes?.data?.data || []
+      const awayPlayers = awayPlayersRes?.data?.data || []
 
-      if (performances.length === 0 && all.length > 0) {
-        setPerformances(all.map(p => defaultPerf(p)))
+      // Players in the saved XI for each side default to 90 minutes; everyone else to 0.
+      const homeXi = new Set(
+        (homeFormationRes?.data?.data?.formation || [])
+          .filter(s => s && s.playerId != null)
+          .map(s => s.playerId)
+      )
+      const awayXi = new Set(
+        (awayFormationRes?.data?.data?.formation || [])
+          .filter(s => s && s.playerId != null)
+          .map(s => s.playerId)
+      )
+
+      if (performances.length === 0) {
+        const seeded = [
+          ...homePlayers.map(p => defaultPerf(p, homeXi.has(p.id) ? 90 : 0)),
+          ...awayPlayers.map(p => defaultPerf(p, awayXi.has(p.id) ? 90 : 0))
+        ]
+        if (seeded.length > 0) setPerformances(seeded)
       }
-      return all
+      queryClient.setQueryData(['team-players-modal-sides', homeTeamId, awayTeamId], { home: homePlayers, away: awayPlayers })
+      return [...homePlayers, ...awayPlayers]
     },
     enabled: step === 2 && !!(homeTeamId && awayTeamId)
   })
@@ -119,7 +134,17 @@ const RecordMatchModal = ({ onClose, existingMatch = null, defaultFixtureId = nu
     e.preventDefault()
     if (!fixtureId && !isEdit) return toast.error('Please select a fixture')
     if (scores.home_score === '' || scores.away_score === '') return toast.error('Both scores are required')
-    saveMutation.mutate({ fixture_id: parseInt(fixtureId), ...scores })
+    // Build lineup arrays from the seeded performances so the server persists them too.
+    // homePlayers/awayPlayers are captured by the players useQuery into the closure; for the save
+    // handler we look them up out of the query cache so we don't duplicate the fetch.
+    const sides = queryClient.getQueryData(
+      ['team-players-modal-sides', homeTeamId, awayTeamId]) || { home: [], away: [] }
+    const homeIds = new Set(sides.home.map(p => p.id))
+    const awayIds = new Set(sides.away.map(p => p.id))
+    const homeXi = performances.filter(p => (p.minutes_played || 0) > 0 && homeIds.has(p.player_id)).map(p => p.player_id)
+    const awayXi = performances.filter(p => (p.minutes_played || 0) > 0 && awayIds.has(p.player_id)).map(p => p.player_id)
+    // 
+    saveMutation.mutate({ fixture_id: parseInt(fixtureId), ...scores, home_lineup: homeXi, away_lineup: awayXi })
   }
 
   const handlePerfChange = (index, field, value) => {

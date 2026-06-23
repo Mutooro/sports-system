@@ -88,7 +88,7 @@ const matchController = {
   create: async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
-      const { fixture_id, home_score, away_score, played_date, weather_conditions, match_report } = req.body;
+      const { fixture_id, home_score, away_score, played_date, weather_conditions, match_report, home_lineup, away_lineup } = req.body;
 
       const existing = await Match.findOne({ where: { fixture_id } });
       if (existing) {
@@ -119,7 +119,9 @@ const matchController = {
         played_date: played_date || fixture.match_date,
         result,
         weather_conditions,
-        match_report
+        match_report,
+        ...(Array.isArray(home_lineup) ? { home_lineup } : {}),
+        ...(Array.isArray(away_lineup) ? { away_lineup } : {})
       }, { transaction });
 
       await fixture.update({ status: 'completed' }, { transaction });
@@ -154,7 +156,7 @@ const matchController = {
         return errorResponse(res, 'Match not found', 404);
       }
 
-      const { home_score, away_score, played_date, weather_conditions, match_report } = req.body;
+      const { home_score, away_score, played_date, weather_conditions, match_report, home_lineup, away_lineup } = req.body;
 
       // Recompute result whenever scores are supplied
       let result = match.result;
@@ -172,7 +174,9 @@ const matchController = {
         result,
         ...(played_date        && { played_date }),
         ...(weather_conditions !== undefined && { weather_conditions }),
-        ...(match_report       !== undefined && { match_report })
+        ...(match_report       !== undefined && { match_report }),
+        ...(Array.isArray(home_lineup) ? { home_lineup } : {}),
+        ...(Array.isArray(away_lineup) ? { away_lineup } : {})
       }, { transaction });
 
       await transaction.commit();

@@ -194,6 +194,57 @@ const teamController = {
     }
   },
 
+  // GET /teams/:id/formation — lightweight read of the saved formation
+  getFormation: async (req, res) => {
+    try {
+      const team = await Team.findByPk(req.params.id, {
+        attributes: ['id', 'name', 'formation']
+      });
+      if (!team) return errorResponse(res, 'Team not found', 404);
+
+      return successResponse(res, {
+        team_id: team.id,
+        team_name: team.name,
+        formation: team.formation || null
+      });
+    } catch (error) {
+      logger.error('getFormation error:', error);
+      return errorResponse(res, 'Failed to retrieve formation', 500);
+    }
+  },
+
+  // PUT /teams/:id/formation — persist the tactical lineup
+  saveFormation: async (req, res) => {
+    try {
+      const team = await Team.findByPk(req.params.id);
+      if (!team) return errorResponse(res, 'Team not found', 404);
+
+      const { formation } = req.body;
+      if (!Array.isArray(formation) || formation.length === 0) {
+        return errorResponse(res, 'formation must be a non-empty array of slot objects', 400);
+      }
+
+      // Validate each slot has the minimum required shape
+      for (const slot of formation) {
+        if (!slot.id || !slot.label) {
+          return errorResponse(res, 'Each formation slot must have id and label', 400);
+        }
+      }
+
+      await team.update({ formation });
+      logger.info(`Formation saved for team ${team.id} (${team.name})`);
+
+      return successResponse(res, {
+        team_id: team.id,
+        team_name: team.name,
+        formation: team.formation
+      }, 'Formation saved successfully');
+    } catch (error) {
+      logger.error('saveFormation error:', error);
+      return errorResponse(res, 'Failed to save formation', 500);
+    }
+  },
+
   // Bulk create teams from CSV/JSON import
   bulkCreate: async (req, res) => {
     try {

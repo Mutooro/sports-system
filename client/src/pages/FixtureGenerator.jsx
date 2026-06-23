@@ -232,7 +232,7 @@ const FixtureGenerator = () => {
           <div className="flex justify-end">
             <button
               onClick={handlePreview}
-              disabled={previewMutation.isPending || config.match_days.length === 0}
+              disabled={previewMutation.isPending || config.match_days.length === 0 || !config.start_date}
               className="btn-primary flex items-center gap-2"
             >
               {previewMutation.isPending ? (

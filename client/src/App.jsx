@@ -61,13 +61,13 @@ function App() {
             <Route path="/matches/record" element={<RecordMatch />} />
             <Route path="/teams" element={<TeamManagement />} />
             <Route path="/fixtures" element={<Fixtures />} />
-            <Route path="/fixtures/generate" element={<FixtureGenerator />} />
             <Route path="/matches" element={<MatchResults />} />
             <Route path="/ratings" element={<Ratings />} />
           </Route>
 
           {/* Admin-only routes */}
           <Route element={<RoleProtected allowedRoles={["admin"]} />}>
+            <Route path="/fixtures/generate" element={<FixtureGenerator />} />
             <Route path="/students" element={<StudentManagement />} />
           </Route>
 

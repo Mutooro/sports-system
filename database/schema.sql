@@ -41,6 +41,7 @@ CREATE TABLE teams (
   sport_type ENUM('football', 'rugby', 'basketball', 'swimming', 'athletics') DEFAULT 'football',
   coach_id INT,
   description TEXT,
+  formation JSON,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (hall_id) REFERENCES halls(id) ON DELETE CASCADE,
@@ -100,6 +101,8 @@ CREATE TABLE matches (
   result ENUM('home_win', 'away_win', 'draw', 'no_result'),
   weather_conditions VARCHAR(100),
   match_report TEXT,
+  home_lineup JSON,
+  away_lineup JSON,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (fixture_id) REFERENCES fixtures(id) ON DELETE CASCADE,
   INDEX idx_fixture (fixture_id)

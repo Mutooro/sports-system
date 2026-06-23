@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -12,6 +12,7 @@ const errorHandler = require('./middleware/errorHandler');
 const { logger } = require('./utils/logger');
 const { startRatingScheduler } = require('./jobs/ratingScheduler');
 const { migrate: migrateStudentPlayer } = require('./scripts/migrateStudentPlayer');
+const { migrate: migrateLineups } = require('./scripts/migrateLineups');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -85,8 +86,13 @@ const startServer = async () => {
       } catch (migErr) {
         logger.error('Student/Player migration failed:', migErr);
       }
+      try {
+        await migrateLineups();
+      } catch (migErr) {
+        logger.error('Lineup migration failed:', migErr);
+      }
     } else {
-      logger.info('Skipping Student/Player auto-migration in production. Run `node src/scripts/migrateStudentPlayer.js` manually if needed.');
+      logger.info('Skipping startup auto-migrations in production. Run `node src/scripts/migrateStudentPlayer.js` and `node src/scripts/migrateLineups.js` manually if needed.');
     }
 
     // Sync models (use { force: true } only in development to reset)

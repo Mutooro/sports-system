@@ -26,8 +26,8 @@ api.interceptors.response.use(
       try {
         const refreshToken = useAuthStore.getState().refreshToken
         const response = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken })
-        const { accessToken } = response.data.data
-        useAuthStore.getState().updateTokens({ accessToken })
+        const { accessToken, refreshToken: newRefreshToken } = response.data.data
+        useAuthStore.getState().updateTokens({ accessToken, refreshToken: newRefreshToken })
         originalRequest.headers.Authorization = `Bearer ${accessToken}`
         return api(originalRequest)
       } catch (refreshError) {
@@ -61,14 +61,16 @@ export const playerAPI = {
 }
 
 export const teamAPI = {
-  getAll:     (params)   => api.get('/teams', { params }),
-  getById:    (id)       => api.get(`/teams/${id}`),
-  create:     (data)     => api.post('/teams', data),
-  bulkCreate: (rows)     => api.post('/teams/bulk', { teams: rows }),
-  update:     (id, data) => api.put(`/teams/${id}`, data),
-  delete:     (id)       => api.delete(`/teams/${id}`),
-  getPlayers: (id)       => api.get(`/teams/${id}/players`),
-  getRatings: (id)       => api.get(`/teams/${id}/ratings`)
+  getAll:        (params)   => api.get('/teams', { params }),
+  getById:       (id)       => api.get(`/teams/${id}`),
+  create:        (data)     => api.post('/teams', data),
+  bulkCreate:    (rows)     => api.post('/teams/bulk', { teams: rows }),
+  update:        (id, data) => api.put(`/teams/${id}`, data),
+  delete:        (id)       => api.delete(`/teams/${id}`),
+  getPlayers:    (id)       => api.get(`/teams/${id}/players`),
+  getRatings:    (id)       => api.get(`/teams/${id}/ratings`),
+  getFormation:  (id)       => api.get(`/teams/${id}/formation`),
+  saveFormation: (id, formation) => api.put(`/teams/${id}/formation`, { formation })
 }
 
 export const fixtureAPI = {

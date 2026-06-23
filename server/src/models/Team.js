@@ -34,6 +34,11 @@ const Team = sequelize.define('Team', {
   description: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+  formation: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    comment: 'Saved tactical formation: array of { id, label, top, left, playerId }'
   }
 }, {
   tableName: 'teams'

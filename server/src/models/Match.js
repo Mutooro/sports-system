@@ -1,4 +1,4 @@
-const { DataTypes } = require('sequelize');
+﻿const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 const Match = sequelize.define('Match', {
@@ -35,6 +35,16 @@ const Match = sequelize.define('Match', {
   match_report: {
     type: DataTypes.TEXT,
     allowNull: true
+  },
+  home_lineup: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    comment: 'Array of player ids in the home starting XI for this match'
+  },
+  away_lineup: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    comment: 'Array of player ids in the away starting XI for this match'
   }
 }, {
   tableName: 'matches'
